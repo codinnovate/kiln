@@ -1,0 +1,154 @@
+import OpenAI from 'openai';
+import type {
+  CompletionRequest,
+  CompletionResponse,
+  ProviderType,
+  StreamChunk,
+  ToolDefinition,
+} from '../models/provider.js';
+import { OpenAIProvider } from './openai.js';
+
+export class CustomProvider extends OpenAIProvider {
+  readonly type: ProviderType = 'custom';
+  readonly name: string;
+
+  private customClient: OpenAI;
+
+  constructor(apiKey?: string, baseUrl?: string, name?: string) {
+    super(apiKey, baseUrl);
+    this.name = name ?? 'Custom';
+
+    if (!baseUrl) {
+      throw new Error('Custom provider requires a baseUrl');
+    }
+
+    this.customClient = new OpenAI({
+      apiKey: apiKey || 'no-key',
+      baseURL: baseUrl,
+    });
+  }
+
+  validate(): boolean {
+    return !!this.baseUrl;
+  }
+
+  async complete(request: CompletionRequest): Promise<CompletionResponse> {
+    try {
+      const response = await this.customClient.chat.completions.create({
+        model: this.extractModelId(request.model),
+        messages: this.formatMessages(request.messages) as OpenAI.ChatCompletionMessageParam[],
+        tools: this.formatTools(request.tools) as OpenAI.ChatCompletionTool[] | undefined,
+        temperature: request.temperature,
+        max_tokens: request.maxTokens,
+        stream: false,
+      });
+
+      const choice = response.choices[0];
+      if (!choice) {
+        throw new Error('No response choices returned');
+      }
+
+      const assistantMessage: import('../models/provider.js').Message = {
+        role: 'assistant',
+        content: choice.message.content ?? '',
+      };
+
+      if (choice.message.tool_calls?.length) {
+        assistantMessage.toolCalls = choice.message.tool_calls.map((tc) => ({
+          id: tc.id,
+          name: tc.function.name,
+          arguments: tc.function.arguments,
+        }));
+      }
+
+      return {
+        message: assistantMessage,
+        usage: {
+          inputTokens: response.usage?.prompt_tokens ?? 0,
+          outputTokens: response.usage?.completion_tokens ?? 0,
+        },
+        model: request.model,
+      };
+    } catch (error) {
+      this.createErrorResponse(error);
+    }
+  }
+
+  async *stream(request: CompletionRequest): AsyncGenerator<StreamChunk> {
+    try {
+      const stream = await this.customClient.chat.completions.create({
+        model: this.extractModelId(request.model),
+        messages: this.formatMessages(request.messages) as OpenAI.ChatCompletionMessageParam[],
+        tools: this.formatTools(request.tools) as OpenAI.ChatCompletionTool[] | undefined,
+        temperature: request.temperature,
+        max_tokens: request.maxTokens,
+        stream: true,
+        stream_options: { include_usage: true },
+      });
+
+      const toolCallAccumulator: Map<
+        number,
+        { id: string; name: string; arguments: string }
+      > = new Map();
+
+      for await (const chunk of stream) {
+        const delta = chunk.choices[0]?.delta;
+
+        if (delta?.content) {
+          yield { type: 'text_delta', text: delta.content };
+        }
+
+        if (delta?.tool_calls) {
+          for (const tc of delta.tool_calls) {
+            const index = tc.index ?? 0;
+            const existing = toolCallAccumulator.get(index);
+
+            if (!existing && tc.id) {
+              toolCallAccumulator.set(index, {
+                id: tc.id,
+                name: tc.function?.name ?? '',
+                arguments: tc.function?.arguments ?? '',
+              });
+            } else if (existing) {
+              if (tc.function?.name) {
+                existing.name += tc.function.name;
+              }
+              if (tc.function?.arguments) {
+                existing.arguments += tc.function.arguments;
+              }
+            }
+          }
+        }
+
+        if (chunk.usage) {
+          yield {
+            type: 'usage',
+            inputTokens: chunk.usage.prompt_tokens ?? 0,
+            outputTokens: chunk.usage.completion_tokens ?? 0,
+          };
+        }
+      }
+
+      for (const [, tc] of toolCallAccumulator) {
+        yield {
+          type: 'tool_call',
+          toolCall: {
+            id: tc.id,
+            name: tc.name,
+            arguments: tc.arguments,
+          },
+        };
+      }
+
+      yield { type: 'done' };
+    } catch (error) {
+      yield { type: 'error', error: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
+  protected formatTools(
+    tools?: ToolDefinition[],
+  ): OpenAI.ChatCompletionTool[] | undefined {
+    return super.formatTools(tools) as OpenAI.ChatCompletionTool[] | undefined;
+  }
+}
