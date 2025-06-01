@@ -7,7 +7,7 @@ const STORE_DIR = join(homedir(), '.kiln');
 const STORE_FILE = join(STORE_DIR, 'permissions.json');
 
 function escapeRegExp(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return str.replace(/[.+^${}()|[\]\\]/g, '\\$&');
 }
 
 function patternToRegex(pattern: string): RegExp {
