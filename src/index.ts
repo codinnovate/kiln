@@ -5,7 +5,7 @@ export { buildSystemPrompt } from './agent/prompts.js';
 export { loadConfig, getConfigDir } from './config/loader.js';
 export type { Config } from './config/schema.js';
 
-export { CredentialManager } from './config/credentials.js';
+export { setCredential, getCredential, removeCredential, listCredentials, hasCredential } from './config/credentials.js';
 
 export { createProvider, createProviderFromConfig } from './providers/index.js';
 export type { BaseProvider } from './providers/base.js';

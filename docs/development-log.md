@@ -84,6 +84,30 @@ Each entry should include:
 
 ---
 
+---
+
+### 2025-07-28 - API Reference Documentation
+
+**Phase:** Polish
+**Summary:** Created comprehensive API reference documentation covering all public exports.
+
+**Details:**
+- Created `docs/api-reference.md` documenting all 30+ public exports
+- Documented core types: Message, ToolCall, ToolResult, ToolDefinition, StreamChunk, etc.
+- Documented all classes: BaseProvider, ToolRegistry, AgentLoop, ContextEngine, ContextBuilder, PermissionManager, PermissionStore, SessionManager, SessionStore, ConversationCompactor
+- Added type signatures, descriptions, and usage examples for each API surface
+- Documented configuration system with Zod schemas (GlobalConfig, ProjectConfig, Credentials)
+- Documented model registry with lookup functions and alias resolution
+- Documented shell safety classification system
+- Updated AGENTS.md, development-log.md, and development-timeline.md to reflect Phase 3 progress
+
+**Next:**
+- Comprehensive test coverage
+- Performance optimization
+- CI/CD setup
+
+---
+
 ## Phase Milestones
 
 ### Phase 1: Foundation ✓
@@ -104,7 +128,7 @@ Each entry should include:
 ### Phase 3: Polish
 - [ ] Comprehensive test coverage
 - [ ] Performance optimization
-- [ ] Documentation completion
+- [x] Documentation completion
 - [ ] CI/CD setup
 - [ ] npm publishing pipeline
 

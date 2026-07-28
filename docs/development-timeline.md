@@ -65,7 +65,7 @@ Kiln development follows four phases: Foundation, Completeness, Polish, and Rele
 
 ## Phase 3: Polish
 
-**Duration:** Planned
+**Duration:** In progress
 **Goal:** Quality, performance, and documentation
 
 ### Milestones
@@ -74,7 +74,7 @@ Kiln development follows four phases: Foundation, Completeness, Polish, and Rele
 |-----------|--------|-------|
 | Test coverage | Pending | Unit tests for all modules, integration tests |
 | Performance | Pending | Optimize token estimation, reduce context building time |
-| Documentation | Pending | Complete all docs, API reference |
+| Documentation | Done | API reference covering all 30+ public exports |
 | CI/CD | Pending | GitHub Actions for lint, test, build, publish |
 | Error messages | Pending | Clear, actionable error messages throughout |
 | Edge cases | Pending | Handle empty projects, missing git, large files |

@@ -35,7 +35,7 @@ const MAX_DISPLAY_LENGTH = 500;
 const MIN_TERMINAL_ROWS = 8;
 const MIN_TERMINAL_COLS = 40;
 
-export function App({ cwd, model, sessionId, debug, autoApprove }: AppProps) {
+export function App({ cwd, model, sessionId: _sessionId, debug, autoApprove }: AppProps) {
   const { exit } = useApp();
   useStdin();
   const { stdout } = useStdout();
@@ -44,7 +44,7 @@ export function App({ cwd, model, sessionId, debug, autoApprove }: AppProps) {
   const [currentModel, setCurrentModel] = useState(initialModel);
   const [mode, setMode] = useState<AppMode>('chat');
   const [pendingPermission, setPendingPermission] = useState<PendingPermission | null>(null);
-  const [inputHistory, setInputHistory] = useState<string[]>([]);
+  const [_inputHistory, setInputHistory] = useState<string[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const termRows = stdout?.rows ?? 24;
