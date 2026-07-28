@@ -45,6 +45,7 @@ export async function executeCommand(
         cwd: options.cwd,
         shell: true,
         env,
+        detached: true,
         stdio: ['ignore', 'pipe', 'pipe'],
       });
     } catch (error) {
@@ -67,16 +68,20 @@ export async function executeCommand(
     const timeoutId = setTimeout(() => {
       timedOut = true;
       killed = true;
-      try {
-        child.kill('SIGTERM');
-      } catch {
-        // process may already be dead
+      if (child.pid) {
+        try {
+          process.kill(-child.pid, 'SIGTERM');
+        } catch {
+          // process group may already be dead
+        }
       }
       setTimeout(() => {
-        try {
-          child.kill('SIGKILL');
-        } catch {
-          // ignore
+        if (child.pid) {
+          try {
+            process.kill(-child.pid, 'SIGKILL');
+          } catch {
+            // ignore
+          }
         }
       }, 2000);
     }, timeout);
