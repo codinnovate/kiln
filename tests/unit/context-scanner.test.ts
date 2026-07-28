@@ -262,4 +262,56 @@ describe('scanRepository', () => {
     expect(srcFile).toBeDefined();
     expect(srcFile!.type).toBe('file');
   });
+
+  it('handles empty project with no files gracefully', async () => {
+    const info = await scanRepository(tmpDir);
+    expect(info.totalFiles).toBe(0);
+    expect(info.totalSize).toBe(0);
+    expect(info.languages).toEqual({});
+    expect(info.files).toHaveLength(0);
+    expect(info.root).toBe(tmpDir);
+    expect(info.packageJson).toBeUndefined();
+    expect(info.gitStatus).toBeUndefined();
+    expect(info.recentCommits).toBeUndefined();
+  });
+
+  it('handles symlinks without crashing', async () => {
+    await writeFile(tmpDir, 'target.txt', 'hello');
+    const linkPath = path.join(tmpDir, 'link.txt');
+    fsSync.symlinkSync(path.join(tmpDir, 'target.txt'), linkPath);
+
+    const info = await scanRepository(tmpDir);
+    const allPaths = info.files.map((f) => f.path);
+    expect(allPaths).toContain('target.txt');
+  });
+
+  it('handles circular symlinks gracefully', async () => {
+    const subDir = path.join(tmpDir, 'sub');
+    await fs.mkdir(subDir);
+    await writeFile(tmpDir, 'sub/file.txt', 'content');
+
+    try {
+      fsSync.symlinkSync(path.join(tmpDir, 'sub'), path.join(tmpDir, 'sub/cycle'));
+    } catch {
+      return;
+    }
+
+    const info = await scanRepository(tmpDir);
+    expect(info.totalFiles).toBeGreaterThanOrEqual(1);
+    expect(info.root).toBe(tmpDir);
+  });
+
+  it('handles unreadable files gracefully', async () => {
+    await writeFile(tmpDir, 'readable.txt', 'content');
+    const unreadable = path.join(tmpDir, 'unreadable.txt');
+    await fs.writeFile(unreadable, 'secret', 'utf-8');
+    try {
+      fsSync.chmodSync(unreadable, 0o000);
+    } catch {
+      return;
+    }
+
+    const info = await scanRepository(tmpDir);
+    expect(info.totalFiles).toBeGreaterThanOrEqual(1);
+  });
 });

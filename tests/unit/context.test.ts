@@ -383,4 +383,52 @@ describe('ContextEngine AGENTS.md loading', () => {
     expect(engine.getRepoInfo()).toBeDefined();
     expect(engine.getRepoInfo()!.totalFiles).toBe(2);
   });
+
+  it('handles empty project gracefully in buildContext', async () => {
+    const engine = new ContextEngine(tmpDir);
+    await engine.initialize();
+
+    const result = await engine.buildContext([]);
+    expect(result.entries).toBeDefined();
+    expect(result.totalTokens).toBeGreaterThanOrEqual(0);
+    expect(result.warnings).toBeDefined();
+  });
+
+  it('handles empty project with empty message history', async () => {
+    const engine = new ContextEngine(tmpDir);
+    await engine.initialize();
+
+    const result = await engine.buildContext([]);
+    expect(result.entries.length).toBeGreaterThanOrEqual(0);
+  });
+
+  it('buildContext works with no repo info after failed scan', async () => {
+    const engine = new ContextEngine('/nonexistent/path');
+    await engine.initialize();
+
+    const result = await engine.buildContext([]);
+    expect(result).toBeDefined();
+    expect(result.entries).toBeDefined();
+  });
+
+  it('trackFileAccess handles empty path', async () => {
+    const engine = new ContextEngine(tmpDir);
+    await engine.initialize();
+
+    engine.trackFileAccess('');
+    expect(engine.getFileHistory()).toContain('');
+  });
+
+  it('trackFileAccess deduplicates entries', async () => {
+    const engine = new ContextEngine(tmpDir);
+    await engine.initialize();
+
+    engine.trackFileAccess('file1.ts');
+    engine.trackFileAccess('file2.ts');
+    engine.trackFileAccess('file1.ts');
+
+    const history = engine.getFileHistory();
+    expect(history[0]).toBe('file1.ts');
+    expect(history.filter((f) => f === 'file1.ts')).toHaveLength(1);
+  });
 });

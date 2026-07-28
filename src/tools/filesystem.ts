@@ -3,6 +3,8 @@ import * as path from 'node:path';
 import type { ToolHandler } from './registry.js';
 
 const MAX_OUTPUT_SIZE = 100_000;
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_DIRECTORY_ENTRIES = 1000;
 const SEARCH_CONTEXT_LINES = 3;
 
 function resolveFilePath(filePath: string, cwd: string): string {
@@ -82,6 +84,14 @@ export const readFileTool: ToolHandler = {
     const stat = await fs.stat(filePath);
     if (stat.isDirectory()) {
       return { toolCallId: '', content: `Path is a directory, not a file: ${filePath}`, isError: true };
+    }
+
+    if (stat.size > MAX_FILE_SIZE) {
+      return {
+        toolCallId: '',
+        content: `File too large (${formatSize(stat.size)}): ${filePath}. Maximum readable size is ${formatSize(MAX_FILE_SIZE)}. Use offset and limit to read specific sections, or use search_files to find content.`,
+        isError: true,
+      };
     }
 
     if (await isBinaryFile(filePath)) {
@@ -214,6 +224,23 @@ export const editFileTool: ToolHandler = {
       await fs.access(filePath);
     } catch {
       return { toolCallId: '', content: `File not found: ${filePath}`, isError: true };
+    }
+
+    const editStat = await fs.stat(filePath);
+    if (editStat.size > MAX_FILE_SIZE) {
+      return {
+        toolCallId: '',
+        content: `File too large (${formatSize(editStat.size)}): ${filePath}. Cannot edit files larger than ${formatSize(MAX_FILE_SIZE)}.`,
+        isError: true,
+      };
+    }
+
+    if (await isBinaryFile(filePath)) {
+      return {
+        toolCallId: '',
+        content: `Binary file detected: ${filePath}. Cannot edit binary files.`,
+        isError: true,
+      };
     }
 
     let content = await fs.readFile(filePath, 'utf-8');
@@ -365,6 +392,12 @@ export const listDirectoryTool: ToolHandler = {
         return a.name.localeCompare(b.name);
       });
 
+      const totalEntries = entries.length;
+      const truncated = entries.length > MAX_DIRECTORY_ENTRIES;
+      if (truncated) {
+        entries = entries.slice(0, MAX_DIRECTORY_ENTRIES);
+      }
+
       const lines: string[] = [];
 
       // Add parent directory reference if not root
@@ -378,7 +411,12 @@ export const listDirectoryTool: ToolHandler = {
         let sizeStr = '';
 
         try {
-          const entryStat = await fs.stat(fullPath);
+          let entryStat: import('node:fs').Stats;
+          try {
+            entryStat = await fs.stat(fullPath);
+          } catch {
+            entryStat = await fs.lstat(fullPath);
+          }
           sizeStr = formatSize(entryStat.size).padStart(8);
         } catch {
           sizeStr = '       ?';
@@ -388,10 +426,13 @@ export const listDirectoryTool: ToolHandler = {
         lines.push(`${sizeStr}  ${typeChar} ${name}`);
       }
 
-      const header = `Directory: ${dirPath} (${entries.length} entries)`;
+      const header = `Directory: ${dirPath} (${totalEntries} entries)`;
+      const suffix = truncated
+        ? `\n\n[Showing first ${MAX_DIRECTORY_ENTRIES} of ${totalEntries} entries. Results truncated.]`
+        : '';
       return {
         toolCallId: '',
-        content: truncateOutput(header + '\n\n' + lines.join('\n')),
+        content: truncateOutput(header + '\n\n' + lines.join('\n') + suffix),
         isError: false,
       };
     } catch (error) {

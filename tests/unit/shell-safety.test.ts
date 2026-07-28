@@ -233,4 +233,47 @@ describe('classifyCommand', () => {
       expect(dangerous.reason.length).toBeGreaterThan(0);
     });
   });
+
+  describe('edge cases', () => {
+    it('handles very long commands', () => {
+      const longCmd = 'echo ' + 'a'.repeat(10000);
+      const result = classifyCommand(longCmd);
+      expect(result.level).toBe('safe');
+    });
+
+    it('handles commands with only flags', () => {
+      const result = classifyCommand('--verbose --debug');
+      expect(result.level).toBe('moderate');
+    });
+
+    it('handles commands with special characters', () => {
+      const result = classifyCommand('echo "hello world"');
+      expect(result.level).toBe('safe');
+    });
+
+    it('handles commands with newlines', () => {
+      const result = classifyCommand('echo hello\nworld');
+      expect(result.level).toBe('safe');
+    });
+
+    it('handles deeply nested pipes', () => {
+      const result = classifyCommand('cat file | grep pattern | head -5');
+      expect(result.level).toBe('safe');
+    });
+
+    it('handles command with blocked pattern in middle of pipeline', () => {
+      const result = classifyCommand('echo test | echo test2 | rm -rf /');
+      expect(result.level).toBe('blocked');
+    });
+
+    it('classifies git stash list as moderate', () => {
+      const result = classifyCommand('git stash list');
+      expect(result.level).toBe('moderate');
+    });
+
+    it('classifies git branch -c as moderate', () => {
+      const result = classifyCommand('git branch -c feature');
+      expect(result.level).toBe('moderate');
+    });
+  });
 });

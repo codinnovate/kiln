@@ -3,6 +3,16 @@ import { resolve, join, extname, relative, basename } from 'node:path';
 import { execSync } from 'node:child_process';
 import type { RepoInfo, FileInfo } from './types.js';
 
+const MAX_FILES = 10_000;
+const BINARY_EXTENSIONS = new Set([
+  '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.ico', '.webp', '.avif',
+  '.mp3', '.mp4', '.wav', '.avi', '.mov', '.mkv', '.flac', '.ogg',
+  '.zip', '.tar', '.gz', '.bz2', '.xz', '.7z', '.rar',
+  '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+  '.exe', '.dll', '.so', '.dylib', '.bin', '.dat', '.db',
+  '.woff', '.woff2', '.ttf', '.otf', '.eot',
+]);
+
 const IGNORE_DIRS = new Set([
   'node_modules', '.git', 'dist', 'build', '.next', '.nuxt',
   'coverage', '.nyc_output', '__pycache__', '.mypy_cache',
@@ -122,6 +132,7 @@ function shouldIgnore(filePath: string, root: string, gitignorePatterns: Set<str
   const ext = extname(filePath).toLowerCase();
 
   if (IGNORE_FILES.has(fileName)) return true;
+  if (BINARY_EXTENSIONS.has(ext)) return true;
 
   for (const part of parts) {
     if (IGNORE_DIRS.has(part)) return true;
@@ -146,19 +157,24 @@ async function scanDirectory(
   root: string,
   gitignorePatterns: Set<string>,
   files: FileInfo[],
+  maxFiles: number,
   maxDepth: number = 20,
   currentDepth: number = 0,
-): Promise<void> {
-  if (currentDepth > maxDepth) return;
+): Promise<boolean> {
+  if (currentDepth > maxDepth || files.length >= maxFiles) return false;
 
   let entries;
   try {
     entries = await readdir(dir, { withFileTypes: true });
   } catch {
-    return;
+    return false;
   }
 
+  const subdirs: { entry: import('node:fs').Dirent; fullPath: string }[] = [];
+
   for (const entry of entries) {
+    if (files.length >= maxFiles) return false;
+
     const fullPath = join(dir, entry.name);
 
     if (shouldIgnore(fullPath, root, gitignorePatterns)) continue;
@@ -181,12 +197,23 @@ async function scanDirectory(
       files.push(info);
 
       if (entry.isDirectory()) {
-        await scanDirectory(fullPath, root, gitignorePatterns, files, maxDepth, currentDepth + 1);
+        subdirs.push({ entry, fullPath });
       }
     } catch {
       // Skip inaccessible files
     }
   }
+
+  if (subdirs.length > 0) {
+    const results = await Promise.all(
+      subdirs.map((s) =>
+        scanDirectory(s.fullPath, root, gitignorePatterns, files, maxFiles, maxDepth, currentDepth + 1),
+      ),
+    );
+    if (results.some((r) => r === false)) return false;
+  }
+
+  return true;
 }
 
 function getGitStatus(root: string): string | undefined {
@@ -218,12 +245,12 @@ async function readPackageJson(root: string): Promise<Record<string, unknown> | 
   }
 }
 
-export async function scanRepository(root: string): Promise<RepoInfo> {
+export async function scanRepository(root: string, maxFiles: number = MAX_FILES): Promise<RepoInfo> {
   const resolvedRoot = resolve(root);
   const gitignorePatterns = parseGitignore(resolvedRoot);
   const files: FileInfo[] = [];
 
-  await scanDirectory(resolvedRoot, resolvedRoot, gitignorePatterns, files);
+  await scanDirectory(resolvedRoot, resolvedRoot, gitignorePatterns, files, maxFiles);
 
   const languages: Record<string, number> = {};
   let totalSize = 0;

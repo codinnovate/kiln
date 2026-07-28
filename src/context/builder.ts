@@ -270,12 +270,23 @@ export class ContextBuilder {
     const included: ContextEntry[] = [];
     const droppedEntries: string[] = [];
     const warnings: string[] = [];
+    const budget = this.budget.availableForContext;
 
     for (const entry of this.entries) {
-      if (totalTokens + entry.tokenEstimate <= this.budget.availableForContext) {
+      if (totalTokens + entry.tokenEstimate <= budget) {
         included.push(entry);
         totalTokens += entry.tokenEstimate;
       } else {
+        if (entry.tokenEstimate > budget - totalTokens) {
+          let allRemainingDropped = true;
+          for (let j = this.entries.indexOf(entry) + 1; j < this.entries.length; j++) {
+            const next = this.entries[j];
+            if (next.priority === entry.priority) { allRemainingDropped = false; break; }
+            if (next.tokenEstimate <= budget - totalTokens) { allRemainingDropped = false; break; }
+          }
+          if (allRemainingDropped && entry.priority < 600) break;
+        }
+
         droppedEntries.push(`${entry.source} (${entry.metadata?.category || entry.type})`);
 
         if (entry.priority >= 600) {

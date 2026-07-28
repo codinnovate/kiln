@@ -544,4 +544,226 @@ describe('filesystem tools', () => {
       expect(result.content).toContain('Path not found');
     });
   });
+
+  describe('edge cases', () => {
+    it('read_file rejects files larger than 10MB', async () => {
+      const filePath = path.join(tmpDir, 'large.bin');
+      const chunk = Buffer.alloc(1024 * 1024, 'x');
+      const fh = await fs.open(filePath, 'w');
+      for (let i = 0; i < 11; i++) {
+        await fh.write(chunk);
+      }
+      await fh.close();
+
+      const result = await readFileTool.execute(
+        { path: filePath },
+        makeContext(tmpDir),
+      );
+      expect(result.isError).toBe(true);
+      expect(result.content).toContain('File too large');
+      expect(result.content).toContain('10.0 MB');
+    });
+
+    it('read_file detects and rejects binary files', async () => {
+      const filePath = path.join(tmpDir, 'binary.bin');
+      const buf = Buffer.alloc(512, 0);
+      buf.write('PNG', 0);
+      buf[4] = 0x00;
+      await fs.writeFile(filePath, buf);
+
+      const result = await readFileTool.execute(
+        { path: filePath },
+        makeContext(tmpDir),
+      );
+      expect(result.isError).toBe(true);
+      expect(result.content).toContain('Binary file detected');
+    });
+
+    it('read_file returns permission denied when not approved', async () => {
+      const filePath = path.join(tmpDir, 'secret.txt');
+      await fs.writeFile(filePath, 'secret', 'utf-8');
+
+      const result = await readFileTool.execute(
+        { path: filePath },
+        makeDenyContext(tmpDir),
+      );
+      expect(result.isError).toBe(true);
+      expect(result.content).toContain('Permission denied');
+    });
+
+    it('write_file returns permission denied when not approved', async () => {
+      const result = await writeFileTool.execute(
+        { path: path.join(tmpDir, 'denied.txt'), content: 'data' },
+        makeDenyContext(tmpDir),
+      );
+      expect(result.isError).toBe(true);
+      expect(result.content).toContain('Permission denied');
+    });
+
+    it('edit_file returns permission denied when not approved', async () => {
+      const filePath = path.join(tmpDir, 'edit-denied.txt');
+      await fs.writeFile(filePath, 'hello', 'utf-8');
+
+      const result = await editFileTool.execute(
+        { path: filePath, edits: [{ search: 'hello', replace: 'world' }] },
+        makeDenyContext(tmpDir),
+      );
+      expect(result.isError).toBe(true);
+      expect(result.content).toContain('Permission denied');
+    });
+
+    it('edit_file rejects binary files', async () => {
+      const filePath = path.join(tmpDir, 'binary-edit.bin');
+      const buf = Buffer.alloc(512, 0);
+      buf[0] = 0xff;
+      buf[1] = 0xfe;
+      await fs.writeFile(filePath, buf);
+
+      const result = await editFileTool.execute(
+        { path: filePath, edits: [{ search: 'a', replace: 'b' }] },
+        makeContext(tmpDir),
+      );
+      expect(result.isError).toBe(true);
+      expect(result.content).toContain('Binary file detected');
+    });
+
+    it('edit_file rejects files larger than 10MB', async () => {
+      const filePath = path.join(tmpDir, 'large-edit.bin');
+      const chunk = Buffer.alloc(1024 * 1024, 'x');
+      const fh = await fs.open(filePath, 'w');
+      for (let i = 0; i < 11; i++) {
+        await fh.write(chunk);
+      }
+      await fh.close();
+
+      const result = await editFileTool.execute(
+        { path: filePath, edits: [{ search: 'a', replace: 'b' }] },
+        makeContext(tmpDir),
+      );
+      expect(result.isError).toBe(true);
+      expect(result.content).toContain('File too large');
+    });
+
+    it('delete_file returns permission denied when not approved', async () => {
+      const filePath = path.join(tmpDir, 'delete-denied.txt');
+      await fs.writeFile(filePath, 'bye', 'utf-8');
+
+      const result = await deleteFileTool.execute(
+        { path: filePath },
+        makeDenyContext(tmpDir),
+      );
+      expect(result.isError).toBe(true);
+      expect(result.content).toContain('Permission denied');
+    });
+
+    it('list_directory truncates at 1000 entries', async () => {
+      const subDir = path.join(tmpDir, 'many-files');
+      await fs.mkdir(subDir);
+      for (let i = 0; i < 1010; i++) {
+        await fs.writeFile(path.join(subDir, `file-${i}.txt`), 'x', 'utf-8');
+      }
+
+      const result = await listDirectoryTool.execute(
+        { path: subDir },
+        makeContext(tmpDir),
+      );
+      expect(result.isError).toBe(false);
+      expect(result.content).toContain('1010 entries');
+      expect(result.content).toContain('Showing first 1000 of 1010');
+    });
+
+    it('list_directory handles symlinks gracefully', async () => {
+      const targetDir = path.join(tmpDir, 'target-dir');
+      await fs.mkdir(targetDir);
+      await fs.writeFile(path.join(targetDir, 'file.txt'), 'content', 'utf-8');
+      const linkDir = path.join(tmpDir, 'link-dir');
+      fsSync.symlinkSync(targetDir, linkDir);
+
+      const result = await listDirectoryTool.execute(
+        { path: linkDir },
+        makeContext(tmpDir),
+      );
+      expect(result.isError).toBe(false);
+      expect(result.content).toContain('file.txt');
+    });
+
+    it('list_directory handles broken symlinks', async () => {
+      const brokenLink = path.join(tmpDir, 'broken-link');
+      fsSync.symlinkSync('/nonexistent/path', brokenLink);
+
+      const result = await listDirectoryTool.execute(
+        { path: tmpDir },
+        makeContext(tmpDir),
+      );
+      expect(result.isError).toBe(false);
+      expect(result.content).toContain('broken-link');
+    });
+
+    it('list_directory returns permission denied when not approved', async () => {
+      const result = await listDirectoryTool.execute(
+        { path: tmpDir },
+        makeDenyContext(tmpDir),
+      );
+      expect(result.isError).toBe(true);
+      expect(result.content).toContain('Permission denied');
+    });
+
+    it('search_files returns permission denied when not approved', async () => {
+      const result = await searchFilesTool.execute(
+        { pattern: 'test', path: tmpDir },
+        makeDenyContext(tmpDir),
+      );
+      expect(result.isError).toBe(true);
+      expect(result.content).toContain('Permission denied');
+    });
+
+    it('glob_files returns permission denied when not approved', async () => {
+      const result = await globFilesTool.execute(
+        { pattern: '*.ts', path: tmpDir },
+        makeDenyContext(tmpDir),
+      );
+      expect(result.isError).toBe(true);
+      expect(result.content).toContain('Permission denied');
+    });
+
+    it('get_file_info returns permission denied when not approved', async () => {
+      const filePath = path.join(tmpDir, 'info-denied.txt');
+      await fs.writeFile(filePath, 'data', 'utf-8');
+      const { getFileInfoTool } = await import('../../src/tools/filesystem.js');
+
+      const result = await getFileInfoTool.execute(
+        { path: filePath },
+        makeDenyContext(tmpDir),
+      );
+      expect(result.isError).toBe(true);
+      expect(result.content).toContain('Permission denied');
+    });
+
+    it('get_file_info returns not found for missing file', async () => {
+      const { getFileInfoTool } = await import('../../src/tools/filesystem.js');
+
+      const result = await getFileInfoTool.execute(
+        { path: path.join(tmpDir, 'nonexistent.txt') },
+        makeContext(tmpDir),
+      );
+      expect(result.isError).toBe(true);
+      expect(result.content).toContain('File not found');
+    });
+
+    it('search_files skips binary files', async () => {
+      const binPath = path.join(tmpDir, 'data.bin');
+      const buf = Buffer.alloc(512, 0);
+      buf[0] = 0xff;
+      await fs.writeFile(binPath, buf);
+      await fs.writeFile(path.join(tmpDir, 'text.txt'), 'hello world', 'utf-8');
+
+      const result = await searchFilesTool.execute(
+        { pattern: 'hello', path: tmpDir },
+        makeContext(tmpDir),
+      );
+      expect(result.isError).toBe(false);
+      expect(result.content).toContain('text.txt');
+      expect(result.content).not.toContain('data.bin');
+    });
+  });
 });

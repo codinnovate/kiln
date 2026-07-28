@@ -15,6 +15,9 @@ function formatGitError(output: string): string {
   if (output.includes('not a git repository') || output.includes('fatal: not a git repository')) {
     return 'Not a git repository. Initialize one with `git init` first.';
   }
+  if (output.includes('ENOENT') || output.includes('not found') || output.includes('command not found')) {
+    return 'Git is not installed or not found in PATH. Please install git to use git features.';
+  }
   return output;
 }
 
