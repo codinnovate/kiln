@@ -7,6 +7,13 @@ import type {
   ProviderType,
 } from '../models/provider.js';
 import { getModel } from '../models/registry.js';
+import {
+  type RetryConfig,
+  DEFAULT_RETRY_CONFIG,
+  isRetryableError,
+  calculateBackoff,
+  sleep,
+} from './retry.js';
 
 export abstract class BaseProvider {
   abstract readonly type: ProviderType;
@@ -14,6 +21,8 @@ export abstract class BaseProvider {
 
   protected apiKey?: string;
   protected baseUrl?: string;
+  protected retryConfig: RetryConfig = { ...DEFAULT_RETRY_CONFIG };
+  protected onRetry?: (attempt: number, maxAttempts: number, error: string) => void;
 
   constructor(apiKey?: string, baseUrl?: string) {
     this.apiKey = apiKey;
@@ -23,8 +32,73 @@ export abstract class BaseProvider {
   abstract complete(request: CompletionRequest): Promise<CompletionResponse>;
   abstract stream(request: CompletionRequest): AsyncGenerator<StreamChunk>;
 
+  setMaxRetries(maxRetries: number): void {
+    this.retryConfig = { ...this.retryConfig, maxRetries };
+  }
+
+  setOnRetry(callback: (attempt: number, maxAttempts: number, error: string) => void): void {
+    this.onRetry = callback;
+  }
+
   validate(): boolean {
     return !!this.apiKey;
+  }
+
+  protected async retryComplete(
+    fn: () => Promise<CompletionResponse>,
+  ): Promise<CompletionResponse> {
+    const max = this.retryConfig.maxRetries;
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt <= max; attempt++) {
+      try {
+        return await fn();
+      } catch (error) {
+        lastError = error;
+        if (!isRetryableError(error) || attempt === max) {
+          throw error;
+        }
+        const delay = calculateBackoff(attempt, this.retryConfig);
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        this.onRetry?.(attempt + 1, max, errorMsg);
+        await sleep(delay);
+      }
+    }
+    throw lastError;
+  }
+
+  protected async *streamWithRetry(
+    createStream: () => AsyncGenerator<StreamChunk>,
+  ): AsyncGenerator<StreamChunk> {
+    const max = this.retryConfig.maxRetries;
+
+    for (let attempt = 0; attempt <= max; attempt++) {
+      let hasRetryableError = false;
+      let retryError: unknown;
+
+      for await (const chunk of createStream()) {
+        if (chunk.type === 'error' && isRetryableError(new Error(chunk.error))) {
+          hasRetryableError = true;
+          retryError = new Error(chunk.error);
+          break;
+        }
+        yield chunk;
+      }
+
+      if (!hasRetryableError) {
+        return;
+      }
+
+      if (attempt < max) {
+        const errorMsg = retryError instanceof Error ? retryError.message : String(retryError);
+        this.onRetry?.(attempt + 1, max, errorMsg);
+        const delay = calculateBackoff(attempt, this.retryConfig);
+        await sleep(delay);
+      } else {
+        const errorMsg = retryError instanceof Error ? retryError.message : String(retryError);
+        yield { type: 'error', error: errorMsg };
+      }
+    }
   }
 
   protected abstract formatMessages(messages: Message[]): unknown[];

@@ -42,7 +42,8 @@ src/
 - All 15+ built-in tools (filesystem, shell, git)
 - Permission system with session and persistent approval
 - Session persistence and resume
-- Context engine with token estimation
+- Context engine with token estimation and AGENTS.md auto-loading
+- Conversation compaction (wired into agent loop, triggered at 80% context usage)
 - Command safety classification (4 levels)
 - React/Ink TUI with components
 - Model registry with aliases
@@ -50,10 +51,10 @@ src/
 - Credential management with file permissions
 
 ### In Progress / Not Yet Complete
-- Conversation compaction (framework exists but not fully wired)
-- AGENTS.md auto-loading from project root
 - TUI component polish and edge cases
 - Integration test coverage
+- Session resume from TUI
+- Error recovery and retry logic
 
 ## Commands
 
@@ -106,15 +107,15 @@ npm run format       # Prettier format all src/
 
 ## Current Task
 
-Building out the documentation suite. Creating complete, accurate documentation that reflects the actual codebase state.
+Phase 2: Completeness - All core features wired up.
 
 ## Next Tasks
 
-- Wire up AGENTS.md loading in the agent loop
-- Complete conversation compaction integration
-- Add more integration tests
-- Polish TUI streaming and error display
-- Add `--version` flag behavior verification
+- Phase 3: Polish
+  - Comprehensive test coverage (currently 572 passing)
+  - Performance optimization
+  - CI/CD setup
+  - Documentation completion
 
 ## Known Issues
 

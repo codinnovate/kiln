@@ -1,5 +1,5 @@
 export { AgentLoop } from './agent/loop.js';
-export type { AgentConfig, AgentEvent, AgentState } from './agent/types.js';
+export type { AgentConfig, AgentEvent, AgentState, RetryEventData } from './agent/types.js';
 export { buildSystemPrompt } from './agent/prompts.js';
 
 export { loadConfig, getConfigDir } from './config/loader.js';

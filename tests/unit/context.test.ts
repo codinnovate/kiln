@@ -5,6 +5,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { estimateTokens, truncateToTokens } from '../../src/context/token-estimator.js';
 import { ContextBuilder } from '../../src/context/builder.js';
+import { ContextEngine } from '../../src/context/engine.js';
 import { scanRepository } from '../../src/context/scanner.js';
 import type { RepoInfo, Message, ContextBudget } from '../../src/context/types.js';
 
@@ -315,5 +316,71 @@ describe('scanRepository', () => {
     expect(Object.keys(info.languages)).toContain('TypeScript');
     expect(Object.keys(info.languages)).toContain('CSS');
     expect(Object.keys(info.languages)).toContain('Markdown');
+  });
+});
+
+describe('ContextEngine AGENTS.md loading', () => {
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    tmpDir = createTempDir();
+  });
+
+  afterEach(async () => {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it('loads AGENTS.md from project root', async () => {
+    const agentsContent = '# Project Memory\n\nAlways use TypeScript.';
+    await fs.writeFile(path.join(tmpDir, 'AGENTS.md'), agentsContent, 'utf-8');
+
+    const engine = new ContextEngine(tmpDir);
+    await engine.initialize();
+
+    expect(engine.getAgentsMdContent()).toBe(agentsContent);
+  });
+
+  it('returns undefined when AGENTS.md is missing', async () => {
+    const engine = new ContextEngine(tmpDir);
+    await engine.initialize();
+
+    expect(engine.getAgentsMdContent()).toBeUndefined();
+  });
+
+  it('includes AGENTS.md as high-priority instruction in context', async () => {
+    const agentsContent = '# Project Rules\n\nUse strict mode.';
+    await fs.writeFile(path.join(tmpDir, 'AGENTS.md'), agentsContent, 'utf-8');
+
+    const engine = new ContextEngine(tmpDir);
+    await engine.initialize();
+
+    const result = await engine.buildContext([]);
+    const instructionEntries = result.entries.filter(
+      (e) => e.type === 'instruction' && e.content.includes('Project Rules'),
+    );
+    expect(instructionEntries.length).toBe(1);
+    expect(instructionEntries[0].priority).toBe(900);
+  });
+
+  it('does not add instruction entry when AGENTS.md is missing', async () => {
+    const engine = new ContextEngine(tmpDir);
+    await engine.initialize();
+
+    const result = await engine.buildContext([]);
+    const instructionEntries = result.entries.filter((e) => e.type === 'instruction');
+    expect(instructionEntries.length).toBe(0);
+  });
+
+  it('loads AGENTS.md in parallel with repo scan', async () => {
+    const agentsContent = '# Instructions\n\nFollow conventions.';
+    await fs.writeFile(path.join(tmpDir, 'AGENTS.md'), agentsContent, 'utf-8');
+    await fs.writeFile(path.join(tmpDir, 'index.ts'), 'const x = 1;', 'utf-8');
+
+    const engine = new ContextEngine(tmpDir);
+    await engine.initialize();
+
+    expect(engine.getAgentsMdContent()).toBe(agentsContent);
+    expect(engine.getRepoInfo()).toBeDefined();
+    expect(engine.getRepoInfo()!.totalFiles).toBe(2);
   });
 });

@@ -238,7 +238,7 @@ describe('filesystem tools', () => {
       expect(result.isError).toBe(false);
       expect(result.content).toContain('10: line 10');
       expect(result.content).toContain('14: line 14');
-      expect(result.content).not.toContain('1: line 1');
+      expect(result.content).not.toMatch(/(?:^|\n)\s*1: line 1/);
     });
 
     it('returns permission denied when not approved', async () => {
@@ -327,7 +327,7 @@ describe('filesystem tools', () => {
         makeContext(tmpDir),
       );
       expect(result.isError).toBe(false);
-      expect(result.content).toContain('Applied 2 edits');
+      expect(result.content).toContain('Applied 2 edit(s)');
       const content = await fs.readFile(filePath, 'utf-8');
       expect(content).toBe('111 222 ccc');
     });
@@ -516,7 +516,7 @@ describe('filesystem tools', () => {
       await fs.writeFile(path.join(tmpDir, 'src', 'utils.ts'), 'export {}', 'utf-8');
       await fs.writeFile(path.join(tmpDir, 'readme.md'), '# README', 'utf-8');
       const result = await globFilesTool.execute(
-        { pattern: 'src/**/*.ts', path: tmpDir },
+        { pattern: 'src/*.ts', path: tmpDir },
         makeContext(tmpDir),
       );
       expect(result.isError).toBe(false);

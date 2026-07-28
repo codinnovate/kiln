@@ -130,7 +130,7 @@ interface ToolHandler {
 
 Manages what information the LLM sees, staying within token budgets.
 
-- `engine.ts` - `ContextEngine` class: orchestrates context building, tracks file access, refreshes repo info
+- `engine.ts` - `ContextEngine` class: orchestrates context building, tracks file access, refreshes repo info, loads AGENTS.md
 - `builder.ts` - `ContextBuilder` class: collects context entries, prioritizes by importance, fits within budget
 - `scanner.ts` - Repository scanner: discovers files, reads package.json, gets git status, identifies languages
 - `token-estimator.ts` - Token counting heuristic (chars-per-token with code vs text detection)
@@ -138,12 +138,13 @@ Manages what information the LLM sees, staying within token budgets.
 
 Context building flow:
 1. Scan repository for structure and metadata
-2. Add project instructions and config
-3. Add conversation history (recent messages with full detail, older as summary)
-4. Add file contents and git diffs as needed
-5. Sort entries by priority
-6. Fit within token budget, dropping low-priority entries
-7. Return warnings for dropped high-priority entries
+2. Load AGENTS.md from project root (if present)
+3. Add project instructions and config
+4. Add conversation history (recent messages with full detail, older as summary)
+5. Add file contents and git diffs as needed
+6. Sort entries by priority
+7. Fit within token budget, dropping low-priority entries
+8. Return warnings for dropped high-priority entries
 
 ### Sessions (`src/sessions/`)
 

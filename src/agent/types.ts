@@ -9,6 +9,14 @@ export interface AgentConfig {
   temperature?: number;
   systemPrompt?: string;
   debug?: boolean;
+  compact?: boolean;
+  maxRetries?: number;
+}
+
+export interface RetryEventData {
+  attempt: number;
+  maxAttempts: number;
+  error: string;
 }
 
 export interface AgentEvent {
@@ -20,7 +28,9 @@ export interface AgentEvent {
     | 'error'
     | 'done'
     | 'usage'
-    | 'permission_request';
+    | 'permission_request'
+    | 'compaction'
+    | 'retry';
   data: unknown;
   timestamp: Date;
 }

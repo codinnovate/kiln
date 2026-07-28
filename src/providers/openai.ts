@@ -33,7 +33,7 @@ export class OpenAIProvider extends BaseProvider {
   }
 
   async complete(request: CompletionRequest): Promise<CompletionResponse> {
-    try {
+    return this.retryComplete(async () => {
       const response = await this.client.chat.completions.create({
         model: this.extractModelId(request.model),
         messages: this.formatMessages(request.messages) as ChatCompletionMessageParam[],
@@ -69,81 +69,79 @@ export class OpenAIProvider extends BaseProvider {
         },
         model: request.model,
       };
-    } catch (error) {
-      this.createErrorResponse(error);
-    }
+    });
   }
 
   async *stream(request: CompletionRequest): AsyncGenerator<StreamChunk> {
-    try {
-      const stream = await this.client.chat.completions.create({
-        model: this.extractModelId(request.model),
-        messages: this.formatMessages(request.messages) as ChatCompletionMessageParam[],
-        tools: this.formatTools(request.tools) as ChatCompletionTool[] | undefined,
-        temperature: request.temperature,
-        max_tokens: request.maxTokens,
-        stream: true,
-        stream_options: { include_usage: true },
-      });
+    yield* this.streamWithRetry(() => this._rawStream(request));
+  }
 
-      const toolCallAccumulator: Map<
-        number,
-        { id: string; name: string; arguments: string }
-      > = new Map();
+  protected async *_rawStream(request: CompletionRequest): AsyncGenerator<StreamChunk> {
+    const stream = await this.client.chat.completions.create({
+      model: this.extractModelId(request.model),
+      messages: this.formatMessages(request.messages) as ChatCompletionMessageParam[],
+      tools: this.formatTools(request.tools) as ChatCompletionTool[] | undefined,
+      temperature: request.temperature,
+      max_tokens: request.maxTokens,
+      stream: true,
+      stream_options: { include_usage: true },
+    });
 
-      for await (const chunk of stream) {
-        const delta = chunk.choices[0]?.delta;
+    const toolCallAccumulator: Map<
+      number,
+      { id: string; name: string; arguments: string }
+    > = new Map();
 
-        if (delta?.content) {
-          yield { type: 'text_delta', text: delta.content };
-        }
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta;
 
-        if (delta?.tool_calls) {
-          for (const tc of delta.tool_calls) {
-            const index = tc.index ?? 0;
-            const existing = toolCallAccumulator.get(index);
+      if (delta?.content) {
+        yield { type: 'text_delta', text: delta.content };
+      }
 
-            if (!existing && tc.id) {
-              toolCallAccumulator.set(index, {
-                id: tc.id,
-                name: tc.function?.name ?? '',
-                arguments: tc.function?.arguments ?? '',
-              });
-            } else if (existing) {
-              if (tc.function?.name) {
-                existing.name += tc.function.name;
-              }
-              if (tc.function?.arguments) {
-                existing.arguments += tc.function.arguments;
-              }
+      if (delta?.tool_calls) {
+        for (const tc of delta.tool_calls) {
+          const index = tc.index ?? 0;
+          const existing = toolCallAccumulator.get(index);
+
+          if (!existing && tc.id) {
+            toolCallAccumulator.set(index, {
+              id: tc.id,
+              name: tc.function?.name ?? '',
+              arguments: tc.function?.arguments ?? '',
+            });
+          } else if (existing) {
+            if (tc.function?.name) {
+              existing.name += tc.function.name;
+            }
+            if (tc.function?.arguments) {
+              existing.arguments += tc.function.arguments;
             }
           }
         }
-
-        if (chunk.usage) {
-          yield {
-            type: 'usage',
-            inputTokens: chunk.usage.prompt_tokens ?? 0,
-            outputTokens: chunk.usage.completion_tokens ?? 0,
-          };
-        }
       }
 
-      for (const [, tc] of toolCallAccumulator) {
+      if (chunk.usage) {
         yield {
-          type: 'tool_call',
-          toolCall: {
-            id: tc.id,
-            name: tc.name,
-            arguments: tc.arguments,
-          },
+          type: 'usage',
+          inputTokens: chunk.usage.prompt_tokens ?? 0,
+          outputTokens: chunk.usage.completion_tokens ?? 0,
         };
       }
-
-      yield { type: 'done' };
-    } catch (error) {
-      yield { type: 'error', error: error instanceof Error ? error.message : String(error) };
     }
+
+    for (const [, tc] of toolCallAccumulator) {
+      yield {
+        type: 'tool_call',
+        toolCall: {
+          id: tc.id,
+          name: tc.name,
+          arguments: tc.arguments,
+        },
+      };
+    }
+
+    yield { type: 'done' };
   }
 
   protected formatMessages(messages: Message[]): ChatCompletionMessageParam[] {

@@ -37,7 +37,7 @@ export class GoogleProvider extends BaseProvider {
   }
 
   async complete(request: CompletionRequest): Promise<CompletionResponse> {
-    try {
+    return this.retryComplete(async () => {
       const { systemInstruction, contents } = this.buildRequest(request);
 
       const model = this.genAI.getGenerativeModel({
@@ -94,69 +94,67 @@ export class GoogleProvider extends BaseProvider {
         },
         model: request.model,
       };
-    } catch (error) {
-      this.createErrorResponse(error);
-    }
+    });
   }
 
   async *stream(request: CompletionRequest): AsyncGenerator<StreamChunk> {
-    try {
-      const { systemInstruction, contents } = this.buildRequest(request);
+    yield* this.streamWithRetry(() => this._rawStream(request));
+  }
 
-      const model = this.genAI.getGenerativeModel({
-        model: this.extractModelId(request.model),
-        systemInstruction: systemInstruction || undefined,
-      });
+  private async *_rawStream(request: CompletionRequest): AsyncGenerator<StreamChunk> {
+    const { systemInstruction, contents } = this.buildRequest(request);
 
-      const generateRequest: GenerateContentRequest = {
-        contents,
-        tools: this.formatTools(request.tools) as
-          | { functionDeclarations: FunctionDeclaration[] }[]
-          | undefined,
-        generationConfig: {
-          temperature: request.temperature,
-          maxOutputTokens: request.maxTokens,
-        },
-      };
+    const model = this.genAI.getGenerativeModel({
+      model: this.extractModelId(request.model),
+      systemInstruction: systemInstruction || undefined,
+    });
 
-      const result = await model.generateContentStream(generateRequest);
+    const generateRequest: GenerateContentRequest = {
+      contents,
+      tools: this.formatTools(request.tools) as
+        | { functionDeclarations: FunctionDeclaration[] }[]
+        | undefined,
+      generationConfig: {
+        temperature: request.temperature,
+        maxOutputTokens: request.maxTokens,
+      },
+    };
 
-      const functionCalls: import('../models/provider.js').ToolCall[] = [];
+    const result = await model.generateContentStream(generateRequest);
 
-      for await (const chunk of result.stream) {
-        const parts = chunk.candidates?.[0]?.content?.parts ?? [];
+    const functionCalls: import('../models/provider.js').ToolCall[] = [];
 
-        for (const part of parts) {
-          if (part.text) {
-            yield { type: 'text_delta', text: part.text };
-          }
-          if (part.functionCall) {
-            functionCalls.push({
-              id: `fc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-              name: part.functionCall.name,
-              arguments: JSON.stringify(part.functionCall.args),
-            });
-          }
+    for await (const chunk of result.stream) {
+      const parts = chunk.candidates?.[0]?.content?.parts ?? [];
+
+      for (const part of parts) {
+        if (part.text) {
+          yield { type: 'text_delta', text: part.text };
         }
-
-        const usage = chunk.usageMetadata;
-        if (usage) {
-          yield {
-            type: 'usage',
-            inputTokens: usage.promptTokenCount ?? 0,
-            outputTokens: usage.candidatesTokenCount ?? 0,
-          };
+        if (part.functionCall) {
+          functionCalls.push({
+            id: `fc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            name: part.functionCall.name,
+            arguments: JSON.stringify(part.functionCall.args),
+          });
         }
       }
 
-      for (const fc of functionCalls) {
-        yield { type: 'tool_call', toolCall: fc };
+      const usage = chunk.usageMetadata;
+      if (usage) {
+        yield {
+          type: 'usage',
+          inputTokens: usage.promptTokenCount ?? 0,
+          outputTokens: usage.candidatesTokenCount ?? 0,
+        };
       }
-
-      yield { type: 'done' };
-    } catch (error) {
-      yield { type: 'error', error: error instanceof Error ? error.message : String(error) };
     }
+
+    for (const fc of functionCalls) {
+      yield { type: 'tool_call', toolCall: fc };
+    }
+
+    yield { type: 'done' };
   }
 
   protected formatMessages(messages: Message[]): Content[] {

@@ -24,6 +24,7 @@ export const GlobalConfigSchema = z
     providers: z.record(z.string(), ProviderConfigSchema).default({}),
     theme: z.enum(['dark', 'light', 'auto']).default('auto'),
     debug: z.boolean().default(false),
+    maxRetries: z.number().int().min(0).max(10).default(3),
   })
   .default({});
 

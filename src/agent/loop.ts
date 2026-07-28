@@ -5,9 +5,13 @@ import type { ToolContext } from '../tools/registry.js';
 import type { ContextEngine } from '../context/engine.js';
 import type { PermissionManager } from '../permissions/manager.js';
 import type { PermissionRequest } from '../permissions/types.js';
-import type { AgentConfig, AgentEvent, AgentState } from './types.js';
+import type { AgentConfig, AgentEvent, AgentState, RetryEventData } from './types.js';
 import type { RepoInfo } from './types.js';
 import { buildSystemPrompt } from './prompts.js';
+import { ConversationCompactor } from '../sessions/compaction.js';
+
+const COMPACTION_THRESHOLD = 0.8;
+const DEFAULT_CONTEXT_WINDOW = 128000;
 
 type EventHandler = (event: AgentEvent) => void;
 
@@ -20,6 +24,7 @@ export class AgentLoop {
   private state: AgentState;
   private handlers: Map<string, EventHandler[]> = new Map();
   private abortController: AbortController | null = null;
+  private compactor: ConversationCompactor;
 
   constructor(
     provider: BaseProvider,
@@ -37,6 +42,19 @@ export class AgentLoop {
       maxIterations: config.maxIterations ?? 20,
     };
     this.state = this.createInitialState();
+    this.compactor = new ConversationCompactor(provider);
+
+    const maxRetries = config.maxRetries ?? 3;
+    provider.setMaxRetries(maxRetries);
+    provider.setOnRetry((attempt, maxAttempts, error) => {
+      const data: RetryEventData = { attempt, maxAttempts, error };
+      const event: AgentEvent = {
+        type: 'retry',
+        data,
+        timestamp: new Date(),
+      };
+      this.emit(event);
+    });
   }
 
   private createInitialState(): AgentState {
@@ -199,6 +217,8 @@ export class AgentLoop {
       }
 
       yield* this.handleToolCalls(toolCalls);
+
+      yield* this.compactIfNeeded();
     }
 
     if (this.state.iterations >= this.config.maxIterations) {
@@ -211,6 +231,32 @@ export class AgentLoop {
       };
       this.emit(warnEvent);
       yield warnEvent;
+    }
+  }
+
+  private async *compactIfNeeded(): AsyncGenerator<AgentEvent> {
+    if (!this.config.compact) return;
+    if (this.state.messages.length < 10) return;
+
+    const contextWindow = this.config.maxTokens ?? DEFAULT_CONTEXT_WINDOW;
+    const targetTokens = Math.floor(contextWindow * COMPACTION_THRESHOLD);
+
+    const result = await this.compactor.compact(this.state.messages, targetTokens);
+
+    if (result.tokenSavings > 0) {
+      this.state.messages = result.messages;
+
+      const compactionEvent: AgentEvent = {
+        type: 'compaction',
+        data: {
+          summary: result.summary,
+          tokenSavings: result.tokenSavings,
+          messageCount: this.state.messages.length,
+        },
+        timestamp: new Date(),
+      };
+      this.emit(compactionEvent);
+      yield compactionEvent;
     }
   }
 

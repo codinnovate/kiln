@@ -43,6 +43,8 @@ function createMockProvider(chunksFn: (iteration: number) => StreamChunk[]): Bas
     formatTools: () => [],
     extractModelId: (m: string) => m.replace(/^[^/]+\//, ''),
     resolveModelProvider: () => 'openai',
+    setMaxRetries: () => {},
+    setOnRetry: () => {},
   } as unknown as BaseProvider;
 }
 
@@ -55,8 +57,8 @@ describe('AgentLoop integration', () => {
     permsPath = path.join(tmpDir, 'perms.json');
   });
 
-  afterEach(async () => {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
   function makeConfig(overrides?: Partial<AgentConfig>): AgentConfig {
@@ -129,6 +131,12 @@ describe('AgentLoop integration', () => {
     tools.register(listDirectoryTool);
 
     const permissions = new PermissionManager({ storePath: permsPath, autoApprove: true });
+    permissions.allowAlways({
+      type: 'file_write',
+      target: path.join(tmpDir, 'output.txt'),
+      description: 'Write to file',
+      safety: 'moderate',
+    });
     const context = new ContextEngine(tmpDir);
     const config = makeConfig();
     const loop = new AgentLoop(provider, tools, context, permissions, config);
@@ -145,7 +153,7 @@ describe('AgentLoop integration', () => {
     expect(toolResultEvents[0].data).toHaveProperty('isError', false);
 
     // Verify the file was actually created
-    const fileContent = await fs.readFile(path.join(tmpDir, 'output.txt'), 'utf-8');
+    const fileContent = await fs.promises.readFile(path.join(tmpDir, 'output.txt'), 'utf-8');
     expect(fileContent).toBe('Hello from integration test!');
   });
 
@@ -384,6 +392,12 @@ describe('AgentLoop integration', () => {
     tools.register(writeFileTool);
 
     const permissions = new PermissionManager({ storePath: permsPath, autoApprove: true });
+    permissions.allowAlways({
+      type: 'file_write',
+      target: path.join(tmpDir, 'mixed.txt'),
+      description: 'Write to file',
+      safety: 'moderate',
+    });
     const context = new ContextEngine(tmpDir);
     const config = makeConfig();
     const loop = new AgentLoop(provider, tools, context, permissions, config);

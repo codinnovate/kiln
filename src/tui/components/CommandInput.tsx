@@ -7,6 +7,7 @@ interface CommandInputProps {
   disabled?: boolean;
   history?: string[];
   onHistoryNavigate?: (direction: 'up' | 'down') => string | null;
+  onCancel?: () => void;
 }
 
 export function CommandInput({
@@ -15,6 +16,7 @@ export function CommandInput({
   disabled = false,
   history = [],
   onHistoryNavigate,
+  onCancel,
 }: CommandInputProps) {
   const [value, setValue] = useState('');
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -78,7 +80,13 @@ export function CommandInput({
       }
 
       if (key.ctrl && input === 'c') {
-        process.exit(0);
+        if (onCancel) {
+          onCancel();
+        } else if (isProcessing) {
+          return;
+        } else {
+          process.exit(0);
+        }
       }
 
       if (key.delete || key.backspace) {

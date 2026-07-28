@@ -41,6 +41,49 @@ Each entry should include:
 
 ---
 
+## Log Entries
+
+### 2025-07-27 - AGENTS.md Loading and Compaction Integration
+
+**Phase:** Completeness
+**Summary:** Wired up AGENTS.md auto-loading and conversation compaction in the agent loop.
+
+**Details:**
+- Added AGENTS.md auto-loading in `ContextEngine.initialize()` - reads from project root in parallel with repo scanning
+- AGENTS.md content added as high-priority instruction (priority 900) in context builder
+- Integrated `ConversationCompactor` into `AgentLoop` - compacts when token usage exceeds 80% of context window
+- Added `compact` config option to `AgentConfig` to enable/disable compaction
+- Added `compaction` event type for UI notification when compaction occurs
+- Added `getAgentsMdContent()` getter on `ContextEngine` for external access
+- Added 5 new tests for AGENTS.md loading in context tests
+
+**Next:**
+- Add more integration tests
+- Polish TUI edge cases and error handling
+- Wire up AGENTS.md in the prompts module
+
+---
+
+### 2025-07-27 - Phase 2 Complete: Session Resume, Retry, TUI Polish
+
+**Phase:** Completeness
+**Summary:** Completed all Phase 2 milestones in parallel using 5 agents.
+
+**Details:**
+- Fixed all 12 pre-existing test failures (shell safety, filesystem tools, integration cleanup)
+- Implemented session resume from TUI via `/resume` slash command with arrow-key navigation
+- Added retry logic with exponential backoff in provider layer (configurable maxRetries, default 3)
+- Added TUI edge case handling: empty input, long messages, Ctrl+C, terminal resize, /help
+- Verified --version flag already works (reads from package.json)
+
+**Next:**
+- Phase 3: Polish
+  - Performance optimization
+  - CI/CD setup
+  - Documentation completion
+
+---
+
 ## Phase Milestones
 
 ### Phase 1: Foundation ✓
@@ -51,12 +94,12 @@ Each entry should include:
 - [x] Tool registry and built-in tools
 - [x] Basic TUI with React/Ink
 
-### Phase 2: Completeness
-- [ ] AGENTS.md loading and integration
-- [ ] Conversation compaction wiring
-- [ ] Session resume in interactive mode
-- [ ] Error recovery and retry logic
-- [ ] TUI edge case handling
+### Phase 2: Completeness ✓
+- [x] AGENTS.md loading and integration
+- [x] Conversation compaction wiring
+- [x] Session resume in interactive mode
+- [x] Error recovery and retry logic
+- [x] TUI edge case handling
 
 ### Phase 3: Polish
 - [ ] Comprehensive test coverage

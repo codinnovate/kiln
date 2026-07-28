@@ -35,7 +35,7 @@ export class AnthropicProvider extends BaseProvider {
   }
 
   async complete(request: CompletionRequest): Promise<CompletionResponse> {
-    try {
+    return this.retryComplete(async () => {
       const { system, messages } = this.splitSystemMessages(request.messages);
 
       const response = await this.client.messages.create({
@@ -80,77 +80,75 @@ export class AnthropicProvider extends BaseProvider {
         },
         model: request.model,
       };
-    } catch (error) {
-      this.createErrorResponse(error);
-    }
+    });
   }
 
   async *stream(request: CompletionRequest): AsyncGenerator<StreamChunk> {
-    try {
-      const { system, messages } = this.splitSystemMessages(request.messages);
+    yield* this.streamWithRetry(() => this._rawStream(request));
+  }
 
-      const stream = this.client.messages.stream({
-        model: this.extractModelId(request.model),
-        max_tokens: request.maxTokens ?? 8192,
-        system: system || undefined,
-        messages: this.formatMessages(messages) as MessageParam[],
-        tools: this.formatTools(request.tools) as Tool[] | undefined,
-        temperature: request.temperature,
-      });
+  private async *_rawStream(request: CompletionRequest): AsyncGenerator<StreamChunk> {
+    const { system, messages } = this.splitSystemMessages(request.messages);
 
-      const toolCallBlocks: ToolUseBlock[] = [];
+    const stream = this.client.messages.stream({
+      model: this.extractModelId(request.model),
+      max_tokens: request.maxTokens ?? 8192,
+      system: system || undefined,
+      messages: this.formatMessages(messages) as MessageParam[],
+      tools: this.formatTools(request.tools) as Tool[] | undefined,
+      temperature: request.temperature,
+    });
 
-      for await (const event of stream) {
-        if (event.type === 'content_block_start') {
-          if (event.content_block.type === 'tool_use') {
-            toolCallBlocks.push(event.content_block as ToolUseBlock);
-          }
-        } else if (event.type === 'content_block_delta') {
-          if (event.delta.type === 'text_delta') {
-            yield { type: 'text_delta', text: event.delta.text };
-          } else if (event.delta.type === 'input_json_delta') {
-            const block = toolCallBlocks.find(
-              (b) => b.id === (event as unknown as { content_block: { id: string } }).content_block?.id,
-            );
-            if (block) {
-              (block as unknown as { input: string }).input =
-                ((block as unknown as { input: string }).input ?? '') +
-                event.delta.partial_json;
-            }
-          }
-        } else if (event.type === 'message_delta') {
-          if ('usage' in event && event.usage) {
-            yield {
-              type: 'usage',
-              inputTokens: 0,
-              outputTokens: event.usage.output_tokens ?? 0,
-            };
+    const toolCallBlocks: ToolUseBlock[] = [];
+
+    for await (const event of stream) {
+      if (event.type === 'content_block_start') {
+        if (event.content_block.type === 'tool_use') {
+          toolCallBlocks.push(event.content_block as ToolUseBlock);
+        }
+      } else if (event.type === 'content_block_delta') {
+        if (event.delta.type === 'text_delta') {
+          yield { type: 'text_delta', text: event.delta.text };
+        } else if (event.delta.type === 'input_json_delta') {
+          const block = toolCallBlocks.find(
+            (b) => b.id === (event as unknown as { content_block: { id: string } }).content_block?.id,
+          );
+          if (block) {
+            (block as unknown as { input: string }).input =
+              ((block as unknown as { input: string }).input ?? '') +
+              event.delta.partial_json;
           }
         }
-      }
-
-      const finalMessage = await stream.finalMessage();
-
-      for (const block of finalMessage.content) {
-        if (block.type === 'tool_use') {
+      } else if (event.type === 'message_delta') {
+        if ('usage' in event && event.usage) {
           yield {
-            type: 'tool_call',
-            toolCall: {
-              id: block.id,
-              name: block.name,
-              arguments:
-                typeof block.input === 'string'
-                  ? block.input
-                  : JSON.stringify(block.input),
-            },
+            type: 'usage',
+            inputTokens: 0,
+            outputTokens: event.usage.output_tokens ?? 0,
           };
         }
       }
-
-      yield { type: 'done' };
-    } catch (error) {
-      yield { type: 'error', error: error instanceof Error ? error.message : String(error) };
     }
+
+    const finalMessage = await stream.finalMessage();
+
+    for (const block of finalMessage.content) {
+      if (block.type === 'tool_use') {
+        yield {
+          type: 'tool_call',
+          toolCall: {
+            id: block.id,
+            name: block.name,
+            arguments:
+              typeof block.input === 'string'
+                ? block.input
+                : JSON.stringify(block.input),
+          },
+        };
+      }
+    }
+
+    yield { type: 'done' };
   }
 
   protected formatMessages(messages: Message[]): MessageParam[] {

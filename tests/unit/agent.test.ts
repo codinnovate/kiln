@@ -109,6 +109,8 @@ describe('AgentLoop', () => {
       formatTools: () => [],
       extractModelId: (m: string) => m,
       resolveModelProvider: () => 'openai',
+      setMaxRetries: () => {},
+      setOnRetry: () => {},
     } as unknown as BaseProvider;
   }
 

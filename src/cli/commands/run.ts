@@ -55,6 +55,7 @@ export async function runCommand(opts: RunOptions): Promise<number> {
     provider: providerId,
     cwd,
     maxIterations: 20,
+    maxRetries: config.global.maxRetries,
     debug: opts.debug,
   };
 

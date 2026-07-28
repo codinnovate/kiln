@@ -21,9 +21,15 @@ interface ConversationViewProps {
   entries: ConversationEntry[];
   isProcessing: boolean;
   streamingText?: string;
+  maxDisplayLength?: number;
 }
 
-export function ConversationView({ entries, isProcessing, streamingText }: ConversationViewProps) {
+export function ConversationView({
+  entries,
+  isProcessing,
+  streamingText,
+  maxDisplayLength = 500,
+}: ConversationViewProps) {
   const { stdout } = useStdout();
   const scrollRef = useRef(0);
   const containerHeight = Math.max(5, (stdout?.rows ?? 24) - 8);
@@ -46,7 +52,13 @@ export function ConversationView({ entries, isProcessing, streamingText }: Conve
 
           switch (entry.type) {
             case 'message':
-              return entry.message ? <MessageView key={key} message={entry.message} /> : null;
+              return entry.message ? (
+                <MessageView
+                  key={key}
+                  message={entry.message}
+                  maxDisplayLength={maxDisplayLength}
+                />
+              ) : null;
 
             case 'tool_call':
               return (

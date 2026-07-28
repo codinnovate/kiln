@@ -1,9 +1,11 @@
 import { resolve } from 'node:path';
+import { readFile } from 'node:fs/promises';
 import type { ContextBudget, ContextResult, Message, RepoInfo } from './types.js';
 import { ContextBuilder } from './builder.js';
 import { scanRepository } from './scanner.js';
 
 const MAX_RECENT_FILES = 50;
+const AGENTS_MD_FILENAME = 'AGENTS.md';
 
 export class ContextEngine {
   private cwd: string;
@@ -12,6 +14,7 @@ export class ContextEngine {
   private recentFiles: string[] = [];
   private lastScan: number = 0;
   private scanCacheMs: number = 30_000;
+  private agentsMdContent?: string;
 
   constructor(cwd: string, budget?: Partial<ContextBudget>) {
     this.cwd = resolve(cwd);
@@ -19,7 +22,10 @@ export class ContextEngine {
   }
 
   async initialize(): Promise<void> {
-    await this.refreshRepoInfo();
+    await Promise.all([
+      this.refreshRepoInfo(),
+      this.loadAgentsMd(),
+    ]);
   }
 
   async buildContext(
@@ -29,6 +35,10 @@ export class ContextEngine {
     await this.ensureRepoInfo();
 
     const builder = new ContextBuilder(this.budget);
+
+    if (this.agentsMdContent) {
+      builder.addProjectInstructions(this.agentsMdContent);
+    }
 
     if (this.repoInfo) {
       builder.addRepositoryContext(this.repoInfo);
@@ -60,6 +70,10 @@ export class ContextEngine {
     return this.repoInfo;
   }
 
+  getAgentsMdContent(): string | undefined {
+    return this.agentsMdContent;
+  }
+
   trackFileAccess(path: string): void {
     const normalized = resolve(this.cwd, path);
 
@@ -78,6 +92,17 @@ export class ContextEngine {
   async refreshRepoInfo(): Promise<void> {
     this.repoInfo = await scanRepository(this.cwd);
     this.lastScan = Date.now();
+  }
+
+  private async loadAgentsMd(): Promise<void> {
+    try {
+      this.agentsMdContent = await readFile(
+        resolve(this.cwd, AGENTS_MD_FILENAME),
+        'utf-8',
+      );
+    } catch {
+      this.agentsMdContent = undefined;
+    }
   }
 
   private async ensureRepoInfo(): Promise<void> {

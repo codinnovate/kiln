@@ -20,6 +20,7 @@ interface UseAgentReturn {
   chat: (message: string) => Promise<void>;
   cancel: () => void;
   reset: () => void;
+  loadSession: (sessionMessages: Message[], sessionUsage?: { input: number; output: number }) => void;
   setModel: (model: string) => void;
 }
 
@@ -52,6 +53,24 @@ export function useAgent({ config, onPermissionRequest }: UseAgentOptions): UseA
     setUsage({ input: 0, output: 0 });
     setActiveTools([]);
   }, [cancel]);
+
+  const loadSession = useCallback(
+    (sessionMessages: Message[], sessionUsage?: { input: number; output: number }) => {
+      cancel();
+      const newEntries: ConversationEntry[] = sessionMessages.map((msg) => ({
+        type: 'message' as const,
+        message: msg,
+      }));
+      setEntries(newEntries);
+      setMessages([...sessionMessages]);
+      setError(null);
+      if (sessionUsage) {
+        setUsage({ ...sessionUsage });
+      }
+      setActiveTools([]);
+    },
+    [cancel],
+  );
 
   const setModel = useCallback((_model: string) => {
     // Model changes are reflected via config ref
@@ -191,6 +210,18 @@ export function useAgent({ config, onPermissionRequest }: UseAgentOptions): UseA
               break;
             }
 
+            case 'retry': {
+              const data = event.data as { attempt: number; maxAttempts: number; error: string };
+              setEntries((prev) => [
+                ...prev,
+                {
+                  type: 'thinking',
+                  text: `Retrying... (attempt ${data.attempt}/${data.maxAttempts})`,
+                },
+              ]);
+              break;
+            }
+
             case 'done':
               break;
           }
@@ -235,6 +266,7 @@ export function useAgent({ config, onPermissionRequest }: UseAgentOptions): UseA
     chat,
     cancel,
     reset,
+    loadSession,
     setModel,
   };
 }

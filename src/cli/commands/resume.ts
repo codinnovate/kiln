@@ -49,6 +49,7 @@ export const resumeCommand = new Command('resume')
         provider: providerId,
         cwd,
         maxIterations: 20,
+        maxRetries: config.global.maxRetries,
       };
 
       console.log(

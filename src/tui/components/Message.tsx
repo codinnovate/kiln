@@ -4,6 +4,7 @@ import type { Message as AgentMessage } from '../../models/provider.js';
 interface MessageProps {
   message: AgentMessage;
   maxLines?: number;
+  maxDisplayLength?: number;
 }
 
 function getStringContent(content: AgentMessage['content']): string {
@@ -150,15 +151,20 @@ function renderInlineFormatting(text: string): React.ReactNode {
 
 const MAX_LINES = 100;
 
-export function MessageView({ message, maxLines = MAX_LINES }: MessageProps) {
+export function MessageView({ message, maxLines = MAX_LINES, maxDisplayLength }: MessageProps) {
   if (message.role === 'system') return null;
 
   const text = getStringContent(message.content);
   if (!text.trim()) return null;
 
   const lines = text.split('\n');
-  const isTruncated = lines.length > maxLines;
-  const displayText = isTruncated ? lines.slice(0, maxLines).join('\n') : text;
+  const isTruncatedByLines = lines.length > maxLines;
+  const isTruncatedByLength = maxDisplayLength !== undefined && text.length > maxDisplayLength;
+  const displayText = isTruncatedByLines
+    ? lines.slice(0, maxLines).join('\n')
+    : isTruncatedByLength
+      ? text.slice(0, maxDisplayLength)
+      : text;
 
   if (message.role === 'user') {
     return (
@@ -171,11 +177,17 @@ export function MessageView({ message, maxLines = MAX_LINES }: MessageProps) {
         <Box paddingLeft={2}>
           <Text>{renderMarkdownLite(displayText)}</Text>
         </Box>
-        {isTruncated ? (
+        {isTruncatedByLines ? (
           <Text dimColor color="yellow">
             {'  [truncated: '}
             {lines.length}
             {' total lines]'}
+          </Text>
+        ) : isTruncatedByLength ? (
+          <Text dimColor color="yellow">
+            {'  [truncated: '}
+            {text.length}
+            {' total chars]'}
           </Text>
         ) : null}
       </Box>
@@ -192,11 +204,17 @@ export function MessageView({ message, maxLines = MAX_LINES }: MessageProps) {
       <Box paddingLeft={2}>
         <Text>{renderMarkdownLite(displayText)}</Text>
       </Box>
-      {isTruncated ? (
+      {isTruncatedByLines ? (
         <Text dimColor color="yellow">
           {'  [truncated: '}
           {lines.length}
           {' total lines]'}
+        </Text>
+      ) : isTruncatedByLength ? (
+        <Text dimColor color="yellow">
+          {'  [truncated: '}
+          {text.length}
+          {' total chars]'}
         </Text>
       ) : null}
     </Box>
