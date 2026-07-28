@@ -33,7 +33,7 @@ jobs:
         run: npm run typecheck
 
       - name: Lint
-        run: npm run lint || echo "Lint skipped (missing eslint plugins)"
+        run: npm run lint
 
       - name: Test
         run: npm run test -- --run

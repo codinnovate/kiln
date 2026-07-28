@@ -1,4 +1,5 @@
 import { readdir, stat, readFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { resolve, join, extname, relative, basename } from 'node:path';
 import { execSync } from 'node:child_process';
 import type { RepoInfo, FileInfo } from './types.js';
@@ -93,7 +94,7 @@ function parseGitignore(root: string): Set<string> {
   const patterns = new Set<string>();
 
   try {
-    const content = require('node:fs').readFileSync(resolve(root, '.gitignore'), 'utf-8');
+    const content = readFileSync(resolve(root, '.gitignore'), 'utf-8');
     for (const line of content.split('\n')) {
       const trimmed = line.trim();
       if (trimmed && !trimmed.startsWith('#')) {

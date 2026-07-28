@@ -78,7 +78,7 @@ export async function executeCommand(
         } catch {
           // ignore
         }
-      }, 5000);
+      }, 2000);
     }, timeout);
 
     child.stdout?.on('data', (data: Buffer) => {

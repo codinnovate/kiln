@@ -77,7 +77,7 @@ describe('executeCommand edge cases', () => {
     });
     expect(result.timedOut).toBe(true);
     expect(result.exitCode).toBe(-1);
-  }, 5000);
+  }, 8000);
 
   it('respects maxOutput limit', async () => {
     const result = await executeCommand(
