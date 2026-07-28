@@ -231,13 +231,16 @@ describe('executeCommand', () => {
   });
 
   it('respects timeout', async () => {
-    const result = await executeCommand('node -e "setTimeout(() => {}, 60000)"', {
+    const start = Date.now();
+    const result = await executeCommand('sleep 60', {
       cwd: tmpDir,
       timeout: 500,
     });
+    const elapsed = Date.now() - start;
+    expect(elapsed).toBeLessThan(10000);
     expect(result.timedOut).toBe(true);
     expect(result.exitCode).toBe(-1);
-  }, 10000);
+  }, 15000);
 
   it('truncates output exceeding maxOutput', async () => {
     const result = await executeCommand(

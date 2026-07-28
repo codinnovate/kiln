@@ -71,13 +71,16 @@ describe('executeCommand edge cases', () => {
   });
 
   it('handles very long-running command with timeout', async () => {
-    const result = await executeCommand('node -e "setTimeout(() => {}, 30000)"', {
+    const start = Date.now();
+    const result = await executeCommand('sleep 30', {
       cwd: tmpDir,
       timeout: 500,
     });
+    const elapsed = Date.now() - start;
+    expect(elapsed).toBeLessThan(10000);
     expect(result.timedOut).toBe(true);
     expect(result.exitCode).toBe(-1);
-  }, 8000);
+  }, 15000);
 
   it('respects maxOutput limit', async () => {
     const result = await executeCommand(
