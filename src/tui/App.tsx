@@ -93,7 +93,7 @@ export function App({ cwd, model, sessionId: _sessionId, debug, autoApprove }: A
     (command: string) => {
       const trimmed = command.trim();
 
-      if (trimmed === '/help') {
+      if (trimmed === '/' || trimmed === '/help') {
         const helpLines = [
           'Available commands:',
           '  /help     - Show this help message',
