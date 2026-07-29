@@ -40,7 +40,7 @@ export function App({ cwd, model, sessionId: _sessionId, debug, autoApprove }: A
   useStdin();
   const { stdout } = useStdout();
 
-  const initialModel = resolveModelAlias(model ?? 'claude-sonnet');
+  const initialModel = resolveModelAlias(model ?? 'zen/deepseek-v4-flash-free');
   const [currentModel, setCurrentModel] = useState(initialModel);
   const [mode, setMode] = useState<AppMode>('chat');
   const [pendingPermission, setPendingPermission] = useState<PendingPermission | null>(null);

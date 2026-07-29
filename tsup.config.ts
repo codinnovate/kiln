@@ -5,7 +5,7 @@ export default defineConfig({
   format: 'esm',
   clean: true,
   target: 'es2022',
-  outDir: 'dist',
+  outDir: 'dist/cli',
   dts: false,
   sourcemap: false,
 });

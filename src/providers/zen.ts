@@ -7,11 +7,11 @@ export class ZenProvider extends CustomProvider {
   readonly type: ProviderType = 'zen';
   readonly name: string = 'OpenCode Zen';
 
-  constructor(apiKey?: string) {
-    super(apiKey || process.env.ZEN_API_KEY, ZEN_BASE_URL, 'OpenCode Zen');
+  constructor() {
+    super(undefined, ZEN_BASE_URL, 'OpenCode Zen');
   }
 
   validate(): boolean {
-    return !!(this.apiKey || process.env.ZEN_API_KEY);
+    return true;
   }
 }

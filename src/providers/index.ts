@@ -38,7 +38,7 @@ export function createProvider(
     case 'custom':
       return new CustomProvider(apiKey, baseUrl);
     case 'zen':
-      return new ZenProvider(apiKey);
+      return new ZenProvider();
     default:
       throw new ProviderError(
         `Unknown provider type: ${type}`,

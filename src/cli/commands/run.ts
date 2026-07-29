@@ -34,7 +34,7 @@ export async function runCommand(opts: RunOptions): Promise<number> {
   const config = loadConfig();
   const sessionManager = new SessionManager();
 
-  const modelId = resolveModelAlias(opts.model ?? config.global.defaultModel ?? 'claude-sonnet');
+  const modelId = resolveModelAlias(opts.model ?? config.global.defaultModel ?? 'zen/deepseek-v4-flash-free');
   const modelInfo = getModel(modelId);
   if (!modelInfo) {
     console.error(chalk.red(`Unknown model: ${modelId}`));
