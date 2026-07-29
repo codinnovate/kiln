@@ -38,7 +38,7 @@ export const resumeCommand = new Command('resume')
 
       const providerId = (session.metadata.provider ?? modelInfo.provider) as ProviderType;
       const apiKey = config.credentials[providerId];
-      if (!apiKey && providerId !== 'ollama') {
+      if (!apiKey && providerId !== 'ollama' && providerId !== 'zen') {
         console.error(chalk.red(`No API key configured for provider: ${providerId}`));
         process.exit(1);
       }

@@ -44,7 +44,7 @@ export async function runCommand(opts: RunOptions): Promise<number> {
 
   const providerId = (opts.provider ?? modelInfo.provider) as ProviderType;
   const apiKey = config.credentials[providerId];
-  if (!apiKey && providerId !== 'ollama') {
+  if (!apiKey && providerId !== 'ollama' && providerId !== 'zen') {
     console.error(chalk.red(`No API key configured for provider: ${providerId}`));
     console.error(chalk.dim(`Run \`kiln auth set ${providerId}\` to configure.`));
     return 1;
@@ -127,6 +127,18 @@ export async function runCommand(opts: RunOptions): Promise<number> {
     return 0;
   }
 
-  console.log(chalk.dim('Interactive mode not yet implemented. Use `kiln run <prompt>` for now.'));
+  const { render } = await import('ink');
+  const { App } = await import('../../tui/App.js');
+
+  const { waitUntilExit } = render(
+    <App
+      cwd={cwd}
+      model={modelId}
+      debug={opts.debug}
+      autoApprove={!opts.permissions}
+    />,
+  );
+
+  await waitUntilExit();
   return 0;
 }
