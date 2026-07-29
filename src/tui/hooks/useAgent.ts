@@ -6,6 +6,7 @@ import type { ConversationEntry } from '../components/ConversationView.js';
 
 interface UseAgentOptions {
   config: AgentConfig;
+  autoApprove?: boolean;
   onPermissionRequest?: (request: PermissionRequest) => Promise<PermissionDecision>;
 }
 
@@ -24,7 +25,7 @@ interface UseAgentReturn {
   setModel: (model: string) => void;
 }
 
-export function useAgent({ config, onPermissionRequest }: UseAgentOptions): UseAgentReturn {
+export function useAgent({ config, autoApprove, onPermissionRequest }: UseAgentOptions): UseAgentReturn {
   const [entries, setEntries] = useState<ConversationEntry[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -72,8 +73,8 @@ export function useAgent({ config, onPermissionRequest }: UseAgentOptions): UseA
     [cancel],
   );
 
-  const setModel = useCallback((_model: string) => {
-    // Model changes are reflected via config ref
+  const setModel = useCallback((model: string) => {
+    configRef.current = { ...configRef.current, model };
   }, []);
 
   const chat = useCallback(
@@ -109,7 +110,7 @@ export function useAgent({ config, onPermissionRequest }: UseAgentOptions): UseA
         const tools = createDefaultTools();
         const context = new ContextEngine(agentConfig.cwd);
         const permissions = new PermissionManager({
-          autoApprove: agentConfig.debug,
+          autoApprove: autoApprove ?? agentConfig.debug,
           onPrompt: onPermissionRequest,
         });
 

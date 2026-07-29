@@ -7,6 +7,7 @@ const ProviderTypeSchema = z.enum([
   'openrouter',
   'ollama',
   'custom',
+  'zen',
 ]);
 
 const ProviderConfigSchema = z.object({

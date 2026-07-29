@@ -17,7 +17,8 @@ export type ProviderType =
   | 'google'
   | 'openrouter'
   | 'ollama'
-  | 'custom';
+  | 'custom'
+  | 'zen';
 
 export interface ProviderConfig {
   type: ProviderType;

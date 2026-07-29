@@ -6,7 +6,6 @@ interface CommandInputProps {
   isProcessing: boolean;
   disabled?: boolean;
   history?: string[];
-  onHistoryNavigate?: (direction: 'up' | 'down') => string | null;
   onCancel?: () => void;
 }
 
@@ -15,7 +14,6 @@ export function CommandInput({
   isProcessing,
   disabled = false,
   history = [],
-  onHistoryNavigate,
   onCancel,
 }: CommandInputProps) {
   const [value, setValue] = useState('');
@@ -51,29 +49,25 @@ export function CommandInput({
       }
 
       if (key.upArrow) {
-        if (onHistoryNavigate && history.length > 0) {
-          const newIndex = historyIndex + 1;
-          if (newIndex < history.length) {
-            if (historyIndex === -1) {
-              setPendingValue(value);
-            }
-            setHistoryIndex(newIndex);
-            const histValue = onHistoryNavigate('up');
-            if (histValue !== null) setValue(histValue);
+        const newIndex = historyIndex + 1;
+        if (newIndex < history.length) {
+          if (historyIndex === -1) {
+            setPendingValue(value);
           }
+          setHistoryIndex(newIndex);
+          setValue(history[history.length - 1 - newIndex]);
         }
         return;
       }
 
       if (key.downArrow) {
-        if (onHistoryNavigate && historyIndex >= 0) {
+        if (historyIndex >= 0) {
           const newIndex = historyIndex - 1;
           setHistoryIndex(newIndex);
           if (newIndex === -1) {
             setValue(pendingValue);
           } else {
-            const histValue = onHistoryNavigate('down');
-            if (histValue !== null) setValue(histValue);
+            setValue(history[history.length - 1 - newIndex]);
           }
         }
         return;

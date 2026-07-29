@@ -174,8 +174,8 @@ export function MessageView({ message, maxLines = MAX_LINES, maxDisplayLength }:
             {'You'}
           </Text>
         </Box>
-        <Box paddingLeft={2}>
-          <Text>{renderMarkdownLite(displayText)}</Text>
+        <Box paddingLeft={2} flexDirection="column">
+          {renderMarkdownLite(displayText)}
         </Box>
         {isTruncatedByLines ? (
           <Text dimColor color="yellow">
@@ -201,8 +201,8 @@ export function MessageView({ message, maxLines = MAX_LINES, maxDisplayLength }:
           {'Agent'}
         </Text>
       </Box>
-      <Box paddingLeft={2}>
-        <Text>{renderMarkdownLite(displayText)}</Text>
+      <Box paddingLeft={2} flexDirection="column">
+        {renderMarkdownLite(displayText)}
       </Box>
       {isTruncatedByLines ? (
         <Text dimColor color="yellow">

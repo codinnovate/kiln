@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { Box, Text, useApp, useStdin, useStdout } from 'ink';
 import { Header } from './components/Header.js';
 import { ConversationView } from './components/ConversationView.js';
@@ -44,7 +44,7 @@ export function App({ cwd, model, sessionId: _sessionId, debug, autoApprove }: A
   const [currentModel, setCurrentModel] = useState(initialModel);
   const [mode, setMode] = useState<AppMode>('chat');
   const [pendingPermission, setPendingPermission] = useState<PendingPermission | null>(null);
-  const [_inputHistory, setInputHistory] = useState<string[]>([]);
+  const [inputHistory, setInputHistory] = useState<string[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const termRows = stdout?.rows ?? 24;
@@ -53,10 +53,11 @@ export function App({ cwd, model, sessionId: _sessionId, debug, autoApprove }: A
 
   const modelInfo = getModel(currentModel);
   const displayName = modelInfo?.name ?? currentModel.split('/').pop() ?? currentModel;
+  const defaultProvider = currentModel.includes('/') ? currentModel.split('/')[0] : 'openai';
 
   const agentConfig: AgentConfig = {
     model: currentModel,
-    provider: modelInfo?.provider ?? 'openai',
+    provider: modelInfo?.provider ?? defaultProvider,
     cwd,
     maxIterations: 20,
     debug: debug ?? false,
@@ -86,7 +87,7 @@ export function App({ cwd, model, sessionId: _sessionId, debug, autoApprove }: A
     reset,
     loadSession,
     cancel,
-  } = useAgent({ config: agentConfig, onPermissionRequest: handlePermissionRequest });
+  } = useAgent({ config: agentConfig, autoApprove, onPermissionRequest: handlePermissionRequest });
 
   const handleCommand = useCallback(
     (command: string) => {
@@ -99,7 +100,7 @@ export function App({ cwd, model, sessionId: _sessionId, debug, autoApprove }: A
           '  /model    - Change the current model',
           '  /resume   - Resume a previous session',
           '  /clear    - Clear conversation history',
-          '  /compact  - Compact conversation (not yet implemented)',
+          '  /compact  - Compact conversation',
           '  /context  - Show current working directory',
           '  /status   - Show session status',
           '  /quit     - Exit kiln (alias: /exit)',
@@ -125,7 +126,7 @@ export function App({ cwd, model, sessionId: _sessionId, debug, autoApprove }: A
       }
 
       if (trimmed === '/compact') {
-        setStatusMessage('Compaction not yet implemented.');
+        setStatusMessage('Compaction is handled automatically by the agent.');
         return true;
       }
 
@@ -233,12 +234,6 @@ export function App({ cwd, model, sessionId: _sessionId, debug, autoApprove }: A
     }
   }, [isProcessing, cancel]);
 
-  useEffect(() => {
-    if (mode === 'chat' && isProcessing === false) {
-      // Re-enable input
-    }
-  }, [mode, isProcessing]);
-
   return (
     <Box flexDirection="column" minHeight={MIN_TERMINAL_ROWS}>
       {isSmallTerminal ? (
@@ -295,6 +290,7 @@ export function App({ cwd, model, sessionId: _sessionId, debug, autoApprove }: A
               onSubmit={handleInputSubmit}
               isProcessing={isProcessing}
               disabled={mode !== 'chat'}
+              history={inputHistory}
               onCancel={handleCancel}
             />
           )}

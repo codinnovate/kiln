@@ -19,7 +19,10 @@ const PROVIDER_ORDER: { type: ProviderType; label: string }[] = [
   { type: 'anthropic', label: 'Anthropic' },
   { type: 'openai', label: 'OpenAI' },
   { type: 'google', label: 'Google' },
+  { type: 'openrouter', label: 'OpenRouter' },
+  { type: 'zen', label: 'OpenCode Zen' },
   { type: 'ollama', label: 'Ollama (Local)' },
+  { type: 'custom', label: 'Custom API' },
 ];
 
 function buildGroups(): ModelGroup[] {
@@ -46,7 +49,6 @@ export function ModelSelector({ onSelect, onCancel, currentModel }: ModelSelecto
   useInput(
     (_input, key) => {
       if (key.upArrow) {
-        setSelectedIndex((prev) => Math.max(0, prev - 1));
         setSelectedIndex((prev) => Math.max(0, prev - 1));
       } else if (key.downArrow) {
         setSelectedIndex((prev) => Math.min(flatModels.length - 1, prev + 1));

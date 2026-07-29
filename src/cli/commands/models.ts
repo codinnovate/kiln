@@ -27,6 +27,7 @@ function providerIcon(provider: ProviderType): string {
     openrouter: '●',
     ollama: '●',
     custom: '○',
+    zen: '★',
   };
   return icons[provider] ?? '○';
 }
@@ -39,6 +40,7 @@ function providerColor(provider: ProviderType): ChalkFn {
     openrouter: chalk.magenta,
     ollama: chalk.gray,
     custom: chalk.white,
+    zen: chalk.cyan,
   };
   return colors[provider] ?? chalk.white;
 }

@@ -141,84 +141,115 @@ export class AgentLoop {
 
       this.state.iterations++;
 
-      const messages = await this.buildMessages();
-      const toolDefs = this.tools.getDefinitions();
+      const maxRetries = this.config.maxRetries ?? 3;
+      let iterationError: string | null = null;
 
-      let textContent = '';
-      const toolCalls: ToolCall[] = [];
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        if (attempt > 0) {
+          const retryData: RetryEventData = {
+            attempt,
+            maxAttempts: maxRetries,
+            error: iterationError ?? 'Unknown error',
+          };
+          const retryEvent: AgentEvent = {
+            type: 'retry',
+            data: retryData,
+            timestamp: new Date(),
+          };
+          this.emit(retryEvent);
+          yield retryEvent;
+        }
 
-      for await (const chunk of this.streamCompletion(messages, toolDefs)) {
-        switch (chunk.type) {
-          case 'text_delta':
-            textContent += chunk.text;
-            const textEvent: AgentEvent = {
-              type: 'text',
-              data: { text: chunk.text, accumulated: textContent },
-              timestamp: new Date(),
-            };
-            this.emit(textEvent);
-            yield textEvent;
-            break;
+        iterationError = null;
+        const messages = await this.buildMessages();
+        const toolDefs = this.tools.getDefinitions();
 
-          case 'tool_call':
-            toolCalls.push(chunk.toolCall);
-            const callEvent: AgentEvent = {
-              type: 'tool_call',
-              data: {
-                id: chunk.toolCall.id,
-                name: chunk.toolCall.name,
-                arguments: chunk.toolCall.arguments,
-              },
-              timestamp: new Date(),
-            };
-            this.emit(callEvent);
-            yield callEvent;
-            break;
+        let textContent = '';
+        const toolCalls: ToolCall[] = [];
 
-          case 'usage':
-            this.state.totalTokens.input += chunk.inputTokens;
-            this.state.totalTokens.output += chunk.outputTokens;
-            const usageEvent: AgentEvent = {
-              type: 'usage',
-              data: { ...this.state.totalTokens },
-              timestamp: new Date(),
-            };
-            this.emit(usageEvent);
-            yield usageEvent;
-            break;
+        for await (const chunk of this.streamCompletion(messages, toolDefs)) {
+          switch (chunk.type) {
+            case 'text_delta':
+              textContent += chunk.text;
+              const textEvent: AgentEvent = {
+                type: 'text',
+                data: { text: chunk.text, accumulated: textContent },
+                timestamp: new Date(),
+              };
+              this.emit(textEvent);
+              yield textEvent;
+              break;
 
-          case 'error': {
-            const errEvent: AgentEvent = {
-              type: 'error',
-              data: { message: chunk.error },
-              timestamp: new Date(),
-            };
-            this.emit(errEvent);
-            yield errEvent;
+            case 'tool_call':
+              toolCalls.push(chunk.toolCall);
+              const callEvent: AgentEvent = {
+                type: 'tool_call',
+                data: {
+                  id: chunk.toolCall.id,
+                  name: chunk.toolCall.name,
+                  arguments: chunk.toolCall.arguments,
+                },
+                timestamp: new Date(),
+              };
+              this.emit(callEvent);
+              yield callEvent;
+              break;
+
+            case 'usage':
+              this.state.totalTokens.input += chunk.inputTokens;
+              this.state.totalTokens.output += chunk.outputTokens;
+              const usageEvent: AgentEvent = {
+                type: 'usage',
+                data: { ...this.state.totalTokens },
+                timestamp: new Date(),
+              };
+              this.emit(usageEvent);
+              yield usageEvent;
+              break;
+
+            case 'error': {
+              iterationError = chunk.error;
+              break;
+            }
+
+            case 'done':
+              break;
+          }
+
+          if (iterationError) break;
+        }
+
+        if (!iterationError) {
+          const assistantMsg: Message = {
+            role: 'assistant',
+            content: textContent,
+          };
+          if (toolCalls.length > 0) {
+            assistantMsg.toolCalls = toolCalls;
+          }
+          this.state.messages.push(assistantMsg);
+
+          if (toolCalls.length === 0) {
             return;
           }
 
-          case 'done':
-            break;
+          yield* this.handleToolCalls(toolCalls);
+
+          yield* this.compactIfNeeded();
+          break;
         }
       }
 
-      const assistantMsg: Message = {
-        role: 'assistant',
-        content: textContent,
-      };
-      if (toolCalls.length > 0) {
-        assistantMsg.toolCalls = toolCalls;
+      if (iterationError) {
+        const errEvent: AgentEvent = {
+          type: 'error',
+          data: { message: iterationError },
+          timestamp: new Date(),
+        };
+        this.emit(errEvent);
+        yield errEvent;
+        return;
       }
-      this.state.messages.push(assistantMsg);
-
-      if (toolCalls.length === 0) {
-        break;
-      }
-
-      yield* this.handleToolCalls(toolCalls);
-
-      yield* this.compactIfNeeded();
     }
 
     if (this.state.iterations >= this.config.maxIterations) {

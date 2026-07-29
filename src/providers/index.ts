@@ -8,6 +8,7 @@ import { GoogleProvider } from './google.js';
 import { OpenRouterProvider } from './openrouter.js';
 import { OllamaProvider } from './ollama.js';
 import { CustomProvider } from './custom.js';
+import { ZenProvider } from './zen.js';
 
 export { BaseProvider, ProviderError } from './base.js';
 export { OpenAIProvider } from './openai.js';
@@ -16,6 +17,7 @@ export { GoogleProvider } from './google.js';
 export { OpenRouterProvider } from './openrouter.js';
 export { OllamaProvider } from './ollama.js';
 export { CustomProvider } from './custom.js';
+export { ZenProvider } from './zen.js';
 
 export function createProvider(
   type: ProviderType,
@@ -35,6 +37,8 @@ export function createProvider(
       return new OllamaProvider(apiKey, baseUrl);
     case 'custom':
       return new CustomProvider(apiKey, baseUrl);
+    case 'zen':
+      return new ZenProvider(apiKey);
     default:
       throw new ProviderError(
         `Unknown provider type: ${type}`,
@@ -82,6 +86,7 @@ export function createProviderFromConfig(
         'openrouter',
         'ollama',
         'custom',
+        'zen',
       ];
       if (validTypes.includes(providerPrefix)) {
         const providerConfig = config.global.providers[providerPrefix];
@@ -155,6 +160,8 @@ function resolveEnvApiKey(type: ProviderType): string | undefined {
       return process.env.OPENROUTER_API_KEY;
     case 'ollama':
       return 'ollama';
+    case 'zen':
+      return process.env.ZEN_API_KEY;
     default:
       return undefined;
   }

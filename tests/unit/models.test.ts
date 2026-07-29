@@ -113,7 +113,7 @@ describe('listModels', () => {
   it('returns all registered models', () => {
     const models = listModels();
     expect(models.length).toBeGreaterThan(0);
-    expect(models.length).toBe(17);
+    expect(models.length).toBe(24);
   });
 
   it('each model has required fields', () => {

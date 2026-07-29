@@ -234,6 +234,99 @@ register({
   costPerOutputToken: 0.4 / 1_000_000,
 });
 
+// ── OpenCode Zen (Free) ──────────────────────────────────────────────────────
+
+register({
+  id: 'zen/deepseek-v4-flash-free',
+  name: 'DeepSeek V4 Flash Free',
+  provider: 'zen',
+  contextWindow: 128_000,
+  maxOutput: 32_768,
+  supportsTools: true,
+  supportsStreaming: true,
+  supportsReasoning: true,
+  costPerInputToken: 0,
+  costPerOutputToken: 0,
+});
+
+register({
+  id: 'zen/mimo-v2.5-free',
+  name: 'MiMo-V2.5 Free',
+  provider: 'zen',
+  contextWindow: 128_000,
+  maxOutput: 32_768,
+  supportsTools: true,
+  supportsStreaming: true,
+  supportsReasoning: false,
+  costPerInputToken: 0,
+  costPerOutputToken: 0,
+});
+
+register({
+  id: 'zen/laguna-s-2.1-free',
+  name: 'Laguna S 2.1 Free',
+  provider: 'zen',
+  contextWindow: 128_000,
+  maxOutput: 16_384,
+  supportsTools: true,
+  supportsStreaming: true,
+  supportsReasoning: false,
+  costPerInputToken: 0,
+  costPerOutputToken: 0,
+});
+
+register({
+  id: 'zen/ling-3.0-flash-free',
+  name: 'Ling 3.0 Flash Free',
+  provider: 'zen',
+  contextWindow: 128_000,
+  maxOutput: 16_384,
+  supportsTools: true,
+  supportsStreaming: true,
+  supportsReasoning: false,
+  costPerInputToken: 0,
+  costPerOutputToken: 0,
+});
+
+register({
+  id: 'zen/north-mini-code-free',
+  name: 'North Mini Code Free',
+  provider: 'zen',
+  contextWindow: 128_000,
+  maxOutput: 16_384,
+  supportsTools: true,
+  supportsStreaming: true,
+  supportsReasoning: false,
+  costPerInputToken: 0,
+  costPerOutputToken: 0,
+});
+
+register({
+  id: 'zen/nemotron-3-ultra-free',
+  name: 'Nemotron 3 Ultra Free',
+  provider: 'zen',
+  contextWindow: 128_000,
+  maxOutput: 16_384,
+  supportsTools: true,
+  supportsStreaming: true,
+  supportsReasoning: false,
+  costPerInputToken: 0,
+  costPerOutputToken: 0,
+});
+
+register({
+  id: 'zen/big-pickle',
+  name: 'Big Pickle',
+  provider: 'zen',
+  contextWindow: 128_000,
+  maxOutput: 16_384,
+  supportsTools: true,
+  supportsStreaming: true,
+  supportsReasoning: false,
+  costPerInputToken: 0,
+  costPerOutputToken: 0,
+});
+
 // ── Public API ──────────────────────────────────────────────────────────────
 
 export function getModel(id: string): ModelInfo | undefined {
