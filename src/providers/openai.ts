@@ -23,7 +23,7 @@ export class OpenAIProvider extends BaseProvider {
   constructor(apiKey?: string, baseUrl?: string) {
     super(apiKey, baseUrl);
     this.client = new OpenAI({
-      apiKey: apiKey || process.env.OPENAI_API_KEY,
+      apiKey: apiKey || process.env.OPENAI_API_KEY || 'no-key',
       baseURL: baseUrl,
     });
   }
