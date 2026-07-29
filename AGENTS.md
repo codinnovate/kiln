@@ -49,19 +49,22 @@ src/
 - Model registry with aliases
 - Configuration system (global + project + env)
 - Credential management with file permissions
+- CI/CD pipeline (Node 22, typecheck, lint, test, build)
+- Provider unit tests covering all implementations
 
 ### In Progress / Not Yet Complete
 - TUI component polish and edge cases
-- Integration test coverage
+- Integration test coverage (only agent-loop.test.ts)
 - Session resume from TUI
 - Error recovery and retry logic
+- CLI unit tests
 
 ## Commands
 
 ```bash
 npm run build        # Build with tsup (output to dist/)
 npm run dev          # Run dev mode via tsx
-npm test             # Run Vitest tests
+npm test             # Run Vitest tests (822 tests)
 npm run lint         # ESLint on src/
 npm run typecheck    # tsc --noEmit
 npm run format       # Prettier format all src/
@@ -104,6 +107,8 @@ npm run format       # Prettier format all src/
 | `src/tui/App.tsx` | Main TUI application component |
 | `src/cli/index.ts` | CLI entrypoint with Commander |
 | `package.json` | Project metadata and dependencies |
+| `tsup.config.ts` | Build configuration for tsup bundler |
+| `.github/workflows/ci.yml` | CI pipeline (Node 22, typecheck, lint, test, build)
 
 ## Current Task
 
@@ -112,9 +117,10 @@ Phase 3: Polish - Quality, performance, and documentation.
 ## Next Tasks
 
 - Phase 3: Polish
-  - Comprehensive test coverage (currently 572 passing)
+  - Integration test coverage
+  - CLI unit tests
   - Performance optimization
-  - CI/CD setup
+  - TUI component polish
 - Phase 4: Release
   - Beta testing
   - v1.0.0 release
@@ -126,6 +132,7 @@ Phase 3: Polish - Quality, performance, and documentation.
 - `src/utils/` directory is empty
 - Compaction summary uses hardcoded model (`openai/gpt-4o-mini`)
 - Token estimation is approximate (chars-per-token heuristic)
+- `extractToolResults` doesn't propagate `msg.toolCallId` for string content (affects OpenAI and Anthropic tool role formatting)
 
 ## Decisions Made
 
